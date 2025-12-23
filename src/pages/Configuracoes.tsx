@@ -1,5 +1,9 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Settings } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Building2, Link2, Shield } from "lucide-react";
+import { BusinessProfileTab } from "@/components/configuracoes/BusinessProfileTab";
+import { IntegrationTab } from "@/components/configuracoes/IntegrationTab";
+import { SecurityTab } from "@/components/configuracoes/SecurityTab";
 
 export default function Configuracoes() {
   return (
@@ -10,15 +14,34 @@ export default function Configuracoes() {
           <p className="mt-1 text-muted-foreground">Personalize seu sistema</p>
         </div>
         
-        <div className="flex min-h-[400px] items-center justify-center rounded-lg border border-dashed border-border bg-card/50">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <Settings className="h-12 w-12 text-muted-foreground/50" />
-            <div>
-              <h3 className="text-lg font-medium text-foreground">Configurações em breve</h3>
-              <p className="text-sm text-muted-foreground">A funcionalidade será implementada na próxima fase</p>
-            </div>
+        <Tabs defaultValue="profile" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="profile" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Perfil</span>
+            </TabsTrigger>
+            <TabsTrigger value="integration" className="gap-2">
+              <Link2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Integração</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Segurança</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-6">
+            <TabsContent value="profile">
+              <BusinessProfileTab />
+            </TabsContent>
+            <TabsContent value="integration">
+              <IntegrationTab />
+            </TabsContent>
+            <TabsContent value="security">
+              <SecurityTab />
+            </TabsContent>
           </div>
-        </div>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

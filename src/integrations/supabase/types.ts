@@ -125,6 +125,42 @@ export type Database = {
           },
         ]
       }
+      business_settings: {
+        Row: {
+          business_name: string | null
+          closing_time: string | null
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          opening_time: string | null
+          updated_at: string | null
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          business_name?: string | null
+          closing_time?: string | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          opening_time?: string | null
+          updated_at?: string | null
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          business_name?: string | null
+          closing_time?: string | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          opening_time?: string | null
+          updated_at?: string | null
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string
