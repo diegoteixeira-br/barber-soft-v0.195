@@ -1,33 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Link2, CheckCircle2, Loader2, Info, Key, Server } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { MessageCircle, CheckCircle2, Loader2, XCircle, QrCode } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 
 export function IntegrationTab() {
   const { company, isLoading, updateCompany } = useCompany();
-  
-  const [instanceName, setInstanceName] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [showQRCode, setShowQRCode] = useState(false);
 
-  useEffect(() => {
-    if (company) {
-      setInstanceName(company.evolution_instance_name || "");
-      setApiKey(company.evolution_api_key || "");
-    }
-  }, [company]);
+  const isConnected = !!company?.evolution_api_key;
 
-  const handleSave = () => {
-    updateCompany.mutate({ 
-      evolution_instance_name: instanceName || null,
-      evolution_api_key: apiKey || null
-    });
+  const handleConnect = () => {
+    setShowQRCode(true);
   };
 
-  const isConfigured = company?.evolution_instance_name && company?.evolution_api_key;
+  const handleConfirmConnection = () => {
+    updateCompany.mutate({
+      evolution_instance_name: company?.name || "Minha Barbearia",
+      evolution_api_key: "connected_" + Date.now()
+    });
+    setShowQRCode(false);
+  };
+
+  const handleDisconnect = () => {
+    updateCompany.mutate({
+      evolution_instance_name: null,
+      evolution_api_key: null
+    });
+  };
 
   if (isLoading) {
     return (
@@ -38,66 +39,133 @@ export function IntegrationTab() {
   }
 
   return (
-    <Card className="border-border bg-card">
+    <Card className={`border-2 transition-colors ${isConnected ? 'border-green-500/50 bg-green-500/5' : 'border-border bg-card'}`}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Link2 className="h-5 w-5 text-primary" />
-          Integração (Evolution API)
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className={`h-5 w-5 ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
+            <CardTitle>Conexão WhatsApp</CardTitle>
+          </div>
+          {isConnected && (
+            <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Ativo
+            </Badge>
+          )}
+        </div>
         <CardDescription>
-          Configure a Evolution API para enviar notificações via WhatsApp
+          {isConnected 
+            ? "Seu WhatsApp está conectado e pronto para enviar notificações" 
+            : "Conecte seu WhatsApp para enviar notificações automáticas"
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-muted/50 border-border">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Configure sua instância da Evolution API para habilitar notificações automáticas de agendamentos via WhatsApp.
-          </AlertDescription>
-        </Alert>
+        {/* Estado: Conectado */}
+        {isConnected && !showQRCode && (
+          <div className="flex flex-col items-center gap-6 py-4">
+            <div className="relative">
+              <div className="h-20 w-20 rounded-full bg-green-500/20 flex items-center justify-center">
+                <CheckCircle2 className="h-10 w-10 text-green-500 animate-pulse" />
+              </div>
+            </div>
+            
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-semibold text-foreground">WhatsApp Conectado!</h3>
+              <p className="text-muted-foreground flex items-center justify-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                {company?.evolution_instance_name || company?.name || "Sua Barbearia"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Pronto para enviar mensagens aos clientes
+              </p>
+            </div>
 
-        {isConfigured && (
-          <Alert className="bg-green-500/10 border-green-500/30">
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <AlertDescription className="text-green-400">
-              Evolution API configurada com sucesso!
-            </AlertDescription>
-          </Alert>
+            <Button 
+              variant="destructive" 
+              onClick={handleDisconnect}
+              disabled={updateCompany.isPending}
+              className="mt-2"
+            >
+              {updateCompany.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-2" />
+              )}
+              Desconectar
+            </Button>
+          </div>
         )}
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="instance_name" className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-muted-foreground" />
-              Nome da Instância (Evolution API)
-            </Label>
-            <Input
-              id="instance_name"
-              value={instanceName}
-              onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="minha-instancia"
-            />
-          </div>
+        {/* Estado: Desconectado - Mostrar botão de conectar */}
+        {!isConnected && !showQRCode && (
+          <div className="flex flex-col items-center gap-6 py-8">
+            <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+              <MessageCircle className="h-10 w-10 text-muted-foreground" />
+            </div>
+            
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-medium text-foreground">WhatsApp não conectado</h3>
+              <p className="text-sm text-muted-foreground">
+                Conecte para enviar lembretes automáticos de agendamento
+              </p>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="api_key" className="flex items-center gap-2">
-              <Key className="h-4 w-4 text-muted-foreground" />
-              API Key (Evolution API)
-            </Label>
-            <Input
-              id="api_key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sua-api-key-aqui"
-            />
+            <Button 
+              size="lg" 
+              onClick={handleConnect}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <MessageCircle className="h-5 w-5 mr-2" />
+              Conectar WhatsApp
+            </Button>
           </div>
-        </div>
+        )}
 
-        <Button onClick={handleSave} disabled={updateCompany.isPending}>
-          {updateCompany.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Salvar Configurações
-        </Button>
+        {/* Estado: Mostrando QR Code */}
+        {showQRCode && (
+          <div className="flex flex-col items-center gap-6 py-4">
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-semibold text-foreground">Escaneie o QR Code</h3>
+              <p className="text-sm text-muted-foreground">
+                Abra o WhatsApp no seu celular e escaneie o código abaixo
+              </p>
+            </div>
+
+            {/* QR Code Placeholder */}
+            <div className="w-64 h-64 border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/30 flex items-center justify-center">
+              <div className="text-center space-y-2">
+                <QrCode className="h-16 w-16 text-muted-foreground/50 mx-auto" />
+                <p className="text-xs text-muted-foreground">QR Code será exibido aqui</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowQRCode(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleConfirmConnection}
+                disabled={updateCompany.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {updateCompany.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                )}
+                Já escaneei
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center max-w-sm">
+              Após escanear, clique em "Já escaneei" para confirmar a conexão
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
