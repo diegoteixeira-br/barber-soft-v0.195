@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useUnits } from "@/hooks/useUnits";
+import { useCompany } from "@/hooks/useCompany";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UnitContextType {
   currentUnitId: string | null;
   setCurrentUnitId: (id: string | null) => void;
+  currentCompanyId: string | null;
   isLoading: boolean;
 }
 
@@ -12,23 +14,32 @@ const UnitContext = createContext<UnitContextType | null>(null);
 
 export function UnitProvider({ children }: { children: ReactNode }) {
   const [currentUnitId, setCurrentUnitId] = useState<string | null>(null);
-  const { units, isLoading, createUnit } = useUnits();
+  const { company, isLoading: companyLoading, createCompany } = useCompany();
+  const { units, isLoading: unitsLoading, createUnit } = useUnits(company?.id || null);
 
-  // Auto-create default unit if none exists
+  const isLoading = companyLoading || unitsLoading;
+
+  // Auto-create company and default unit if none exists
   useEffect(() => {
-    const initUnit = async () => {
-      if (!isLoading && units.length === 0) {
-        // Create a default unit for new users
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          createUnit.mutate({ name: "Barbearia Principal" });
-        }
-      } else if (!isLoading && units.length > 0 && !currentUnitId) {
+    const initCompanyAndUnit = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Create company if doesn't exist
+      if (!companyLoading && !company) {
+        createCompany.mutate({ name: "Minha Empresa" });
+        return;
+      }
+
+      // Create default unit if company exists but no units
+      if (company && !unitsLoading && units.length === 0) {
+        createUnit.mutate({ name: "Barbearia Principal" });
+      } else if (!unitsLoading && units.length > 0 && !currentUnitId) {
         setCurrentUnitId(units[0].id);
       }
     };
-    initUnit();
-  }, [units, isLoading, currentUnitId]);
+    initCompanyAndUnit();
+  }, [company, companyLoading, units, unitsLoading, currentUnitId]);
 
   // Update currentUnitId when units change and we have a new default unit
   useEffect(() => {
@@ -38,7 +49,12 @@ export function UnitProvider({ children }: { children: ReactNode }) {
   }, [units]);
 
   return (
-    <UnitContext.Provider value={{ currentUnitId, setCurrentUnitId, isLoading }}>
+    <UnitContext.Provider value={{ 
+      currentUnitId, 
+      setCurrentUnitId, 
+      currentCompanyId: company?.id || null,
+      isLoading 
+    }}>
       {children}
     </UnitContext.Provider>
   );

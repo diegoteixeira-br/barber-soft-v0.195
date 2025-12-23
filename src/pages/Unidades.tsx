@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { UnitCard } from "@/components/units/UnitCard";
 import { UnitFormModal } from "@/components/units/UnitFormModal";
 import { useUnits, Unit } from "@/hooks/useUnits";
+import { useCurrentUnit } from "@/contexts/UnitContext";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
 import {
@@ -18,7 +19,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Unidades() {
-  const { units, isLoading, createUnit, updateUnit, deleteUnit } = useUnits();
+  const { currentCompanyId } = useCurrentUnit();
+  const { units, isLoading, createUnit, updateUnit, deleteUnit } = useUnits(currentCompanyId);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [deletingUnit, setDeletingUnit] = useState<Unit | null>(null);

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface Service {
   id: string;
   unit_id: string;
+  company_id: string | null;
   name: string;
   price: number;
   duration_minutes: number;
@@ -12,7 +13,7 @@ export interface Service {
   created_at: string;
 }
 
-export type ServiceFormData = Omit<Service, "id" | "created_at" | "unit_id">;
+export type ServiceFormData = Omit<Service, "id" | "created_at" | "unit_id" | "company_id">;
 
 export function useServices(unitId: string | null) {
   const { toast } = useToast();
@@ -39,9 +40,20 @@ export function useServices(unitId: string | null) {
     mutationFn: async (service: ServiceFormData) => {
       if (!unitId) throw new Error("Nenhuma unidade selecionada");
 
+      // Get company_id from the unit
+      const { data: unit } = await supabase
+        .from("units")
+        .select("company_id")
+        .eq("id", unitId)
+        .single();
+
       const { data, error } = await supabase
         .from("services")
-        .insert({ ...service, unit_id: unitId })
+        .insert({ 
+          ...service, 
+          unit_id: unitId,
+          company_id: unit?.company_id || null
+        })
         .select()
         .single();
 

@@ -9,6 +9,7 @@ export interface Unit {
   phone: string | null;
   manager_name: string | null;
   user_id: string;
+  company_id: string | null;
   created_at: string;
 }
 
@@ -19,17 +20,23 @@ interface UnitFormData {
   manager_name?: string;
 }
 
-export function useUnits() {
+export function useUnits(companyId: string | null = null) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: units = [], isLoading } = useQuery({
-    queryKey: ["units"],
+    queryKey: ["units", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("units")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Unit[];
@@ -41,9 +48,20 @@ export function useUnits() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // Get company_id for the user
+      const { data: company } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
       const { data, error } = await supabase
         .from("units")
-        .insert({ ...unit, user_id: user.id })
+        .insert({ 
+          ...unit, 
+          user_id: user.id,
+          company_id: company?.id || null
+        })
         .select()
         .single();
 

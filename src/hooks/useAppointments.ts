@@ -9,6 +9,7 @@ type AppointmentStatus = Database["public"]["Enums"]["appointment_status"];
 export interface Appointment {
   id: string;
   unit_id: string;
+  company_id: string | null;
   barber_id: string | null;
   service_id: string | null;
   client_name: string;
@@ -42,7 +43,7 @@ export interface AppointmentFormData {
 }
 
 export function useAppointments(startDate?: Date, endDate?: Date, barberId?: string | null) {
-  const { currentUnitId } = useCurrentUnit();
+  const { currentUnitId, currentCompanyId } = useCurrentUnit();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -98,6 +99,7 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
         .from("appointments")
         .insert({
           unit_id: currentUnitId,
+          company_id: currentCompanyId,
           barber_id: data.barber_id,
           service_id: data.service_id,
           client_name: data.client_name,

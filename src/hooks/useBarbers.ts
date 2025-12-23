@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface Barber {
   id: string;
   unit_id: string;
+  company_id: string | null;
   name: string;
   photo_url: string | null;
   phone: string | null;
@@ -14,7 +15,7 @@ export interface Barber {
   created_at: string;
 }
 
-export type BarberFormData = Omit<Barber, "id" | "created_at">;
+export type BarberFormData = Omit<Barber, "id" | "created_at" | "company_id">;
 
 export function useBarbers(unitId: string | null) {
   const { toast } = useToast();
@@ -41,9 +42,20 @@ export function useBarbers(unitId: string | null) {
     mutationFn: async (barber: Omit<BarberFormData, "unit_id">) => {
       if (!unitId) throw new Error("Nenhuma unidade selecionada");
 
+      // Get company_id from the unit
+      const { data: unit } = await supabase
+        .from("units")
+        .select("company_id")
+        .eq("id", unitId)
+        .single();
+
       const { data, error } = await supabase
         .from("barbers")
-        .insert({ ...barber, unit_id: unitId })
+        .insert({ 
+          ...barber, 
+          unit_id: unitId,
+          company_id: unit?.company_id || null
+        })
         .select()
         .single();
 

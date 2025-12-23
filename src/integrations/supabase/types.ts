@@ -19,6 +19,7 @@ export type Database = {
           barber_id: string | null
           client_name: string
           client_phone: string | null
+          company_id: string | null
           created_at: string
           end_time: string
           id: string
@@ -33,6 +34,7 @@ export type Database = {
           barber_id?: string | null
           client_name: string
           client_phone?: string | null
+          company_id?: string | null
           created_at?: string
           end_time: string
           id?: string
@@ -47,6 +49,7 @@ export type Database = {
           barber_id?: string | null
           client_name?: string
           client_phone?: string | null
+          company_id?: string | null
           created_at?: string
           end_time?: string
           id?: string
@@ -63,6 +66,13 @@ export type Database = {
             columns: ["barber_id"]
             isOneToOne: false
             referencedRelation: "barbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -85,6 +95,7 @@ export type Database = {
         Row: {
           calendar_color: string | null
           commission_rate: number | null
+          company_id: string | null
           created_at: string
           id: string
           is_active: boolean | null
@@ -96,6 +107,7 @@ export type Database = {
         Insert: {
           calendar_color?: string | null
           commission_rate?: number | null
+          company_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean | null
@@ -107,6 +119,7 @@ export type Database = {
         Update: {
           calendar_color?: string | null
           commission_rate?: number | null
+          company_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean | null
@@ -116,6 +129,13 @@ export type Database = {
           unit_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "barbers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "barbers_unit_id_fkey"
             columns: ["unit_id"]
@@ -161,8 +181,39 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          created_at: string | null
+          evolution_api_key: string | null
+          evolution_instance_name: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          evolution_api_key?: string | null
+          evolution_instance_name?: string | null
+          id?: string
+          name: string
+          owner_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          evolution_api_key?: string | null
+          evolution_instance_name?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       services: {
         Row: {
+          company_id: string | null
           created_at: string
           duration_minutes: number
           id: string
@@ -172,6 +223,7 @@ export type Database = {
           unit_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           duration_minutes: number
           id?: string
@@ -181,6 +233,7 @@ export type Database = {
           unit_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           duration_minutes?: number
           id?: string
@@ -190,6 +243,13 @@ export type Database = {
           unit_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "services_unit_id_fkey"
             columns: ["unit_id"]
@@ -202,6 +262,7 @@ export type Database = {
       units: {
         Row: {
           address: string | null
+          company_id: string | null
           created_at: string
           id: string
           manager_name: string | null
@@ -211,6 +272,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           manager_name?: string | null
@@ -220,6 +282,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           manager_name?: string | null
@@ -227,13 +290,22 @@ export type Database = {
           phone?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      user_owns_company: { Args: { p_company_id: string }; Returns: boolean }
       user_owns_unit: { Args: { unit_id: string }; Returns: boolean }
     }
     Enums: {
