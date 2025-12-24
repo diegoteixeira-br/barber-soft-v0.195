@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
+import { User } from "@supabase/supabase-js";
 import {
   LayoutDashboard,
   Calendar,
@@ -57,8 +59,37 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { units } = useUnits();
   const { currentUnitId, setCurrentUnitId } = useCurrentUnit();
+  const [user, setUser] = useState<User | null>(null);
 
   const selectedUnit = units.find((u) => u.id === currentUnitId) || units[0];
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const getUserInitials = () => {
+    if (!user) return "??";
+    const fullName = user.user_metadata?.full_name;
+    if (fullName) {
+      return fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+    }
+    return user.email?.slice(0, 2).toUpperCase() || "??";
+  };
+
+  const getUserDisplayName = () => {
+    if (!user) return "Usuário";
+    return user.user_metadata?.full_name || "Usuário";
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -153,12 +184,12 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-border p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border border-primary/30">
-            <AvatarFallback className="bg-primary/10 text-primary">AD</AvatarFallback>
+            <AvatarFallback className="bg-primary/10 text-primary">{getUserInitials()}</AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <span className="truncate text-sm font-medium">Admin</span>
-              <span className="truncate text-xs text-muted-foreground">admin@barbersoft.com</span>
+              <span className="truncate text-sm font-medium">{getUserDisplayName()}</span>
+              <span className="truncate text-xs text-muted-foreground">{user?.email || ""}</span>
             </div>
           )}
           {!collapsed && (
