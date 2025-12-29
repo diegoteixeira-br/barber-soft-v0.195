@@ -13,47 +13,76 @@ export interface Barber {
   commission_rate: number;
   is_active: boolean;
   created_at: string;
+  unit_name?: string;
 }
 
-export type BarberFormData = Omit<Barber, "id" | "created_at" | "company_id">;
+export type BarberFormData = Omit<Barber, "id" | "created_at" | "company_id" | "unit_name"> & {
+  unit_id?: string;
+};
 
-export function useBarbers(unitId: string | null) {
+export function useBarbers(unitId: string | null | undefined) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: barbers = [], isLoading, refetch } = useQuery({
     queryKey: ["barbers", unitId],
     queryFn: async () => {
-      if (!unitId) return [];
-      
-      const { data, error } = await supabase
+      let query = supabase
         .from("barbers")
-        .select("*")
-        .eq("unit_id", unitId)
+        .select("*, units!inner(name)")
         .order("name");
 
+      if (unitId) {
+        query = query.eq("unit_id", unitId);
+      } else if (unitId === null) {
+        // Get all units owned by the user
+        const { data: userUnits } = await supabase
+          .from("units")
+          .select("id");
+        
+        if (!userUnits || userUnits.length === 0) return [];
+        
+        const unitIds = userUnits.map(u => u.id);
+        query = query.in("unit_id", unitIds);
+      } else {
+        return [];
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
-      return data as Barber[];
+      
+      return (data || []).map((item: any) => ({
+        ...item,
+        unit_name: item.units?.name || "Unidade desconhecida",
+        units: undefined,
+      })) as Barber[];
     },
-    enabled: !!unitId,
+    enabled: unitId !== undefined,
   });
 
   const createBarber = useMutation({
-    mutationFn: async (barber: Omit<BarberFormData, "unit_id">) => {
-      if (!unitId) throw new Error("Nenhuma unidade selecionada");
+    mutationFn: async (barber: Omit<BarberFormData, "unit_id"> & { unit_id?: string }) => {
+      const targetUnitId = barber.unit_id || unitId;
+      if (!targetUnitId) throw new Error("Nenhuma unidade selecionada");
 
       // Get company_id from the unit
       const { data: unit } = await supabase
         .from("units")
         .select("company_id")
-        .eq("id", unitId)
+        .eq("id", targetUnitId)
         .single();
 
       const { data, error } = await supabase
         .from("barbers")
         .insert({ 
-          ...barber, 
-          unit_id: unitId,
+          name: barber.name,
+          phone: barber.phone,
+          photo_url: barber.photo_url,
+          calendar_color: barber.calendar_color,
+          commission_rate: barber.commission_rate,
+          is_active: barber.is_active,
+          unit_id: targetUnitId,
           company_id: unit?.company_id || null
         })
         .select()
@@ -63,7 +92,7 @@ export function useBarbers(unitId: string | null) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["barbers", unitId] });
+      queryClient.invalidateQueries({ queryKey: ["barbers"] });
       toast({ title: "Profissional adicionado com sucesso!" });
     },
     onError: (error: Error) => {
@@ -75,7 +104,14 @@ export function useBarbers(unitId: string | null) {
     mutationFn: async ({ id, ...barber }: Partial<Barber> & { id: string }) => {
       const { data, error } = await supabase
         .from("barbers")
-        .update(barber)
+        .update({
+          name: barber.name,
+          phone: barber.phone,
+          photo_url: barber.photo_url,
+          calendar_color: barber.calendar_color,
+          commission_rate: barber.commission_rate,
+          is_active: barber.is_active,
+        })
         .eq("id", id)
         .select()
         .single();
@@ -84,7 +120,7 @@ export function useBarbers(unitId: string | null) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["barbers", unitId] });
+      queryClient.invalidateQueries({ queryKey: ["barbers"] });
       toast({ title: "Profissional atualizado com sucesso!" });
     },
     onError: (error: Error) => {
@@ -98,7 +134,7 @@ export function useBarbers(unitId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["barbers", unitId] });
+      queryClient.invalidateQueries({ queryKey: ["barbers"] });
       toast({ title: "Profissional removido com sucesso!" });
     },
     onError: (error: Error) => {
@@ -119,7 +155,7 @@ export function useBarbers(unitId: string | null) {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["barbers", unitId] });
+      queryClient.invalidateQueries({ queryKey: ["barbers"] });
       toast({ title: data.is_active ? "Profissional ativado!" : "Profissional desativado!" });
     },
     onError: (error: Error) => {

@@ -1,15 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Loader2 } from "lucide-react";
+import { Plus, Users, Loader2, Building2 } from "lucide-react";
 import { useBarbers, Barber } from "@/hooks/useBarbers";
+import { useUnits } from "@/hooks/useUnits";
 import { useCurrentUnit } from "@/contexts/UnitContext";
 import { BarberCard } from "@/components/barbers/BarberCard";
 import { BarberFormModal } from "@/components/barbers/BarberFormModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Profissionais() {
   const { currentUnitId, isLoading: unitLoading } = useCurrentUnit();
-  const { barbers, isLoading, createBarber, updateBarber, deleteBarber, toggleActive } = useBarbers(currentUnitId);
+  const { units } = useUnits();
+  const [unitFilter, setUnitFilter] = useState<string>("current");
+  
+  // Determine the unit ID to use for fetching barbers
+  const effectiveUnitId = unitFilter === "all" ? null : (unitFilter === "current" ? currentUnitId : unitFilter);
+  
+  const { barbers, isLoading, createBarber, updateBarber, deleteBarber, toggleActive } = useBarbers(effectiveUnitId);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
@@ -44,6 +52,8 @@ export default function Profissionais() {
     toggleActive.mutate({ id, is_active });
   };
 
+  const showUnitBadge = unitFilter === "all" && units.length > 1;
+
   if (unitLoading) {
     return (
       <DashboardLayout>
@@ -57,7 +67,7 @@ export default function Profissionais() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Profissionais</h1>
             <p className="mt-1 text-muted-foreground">Gerencie sua equipe de barbeiros</p>
@@ -67,6 +77,27 @@ export default function Profissionais() {
             Novo Profissional
           </Button>
         </div>
+
+        {/* Unit Filter */}
+        {units.length > 1 && (
+          <div className="flex items-center gap-3">
+            <Select value={unitFilter} onValueChange={setUnitFilter}>
+              <SelectTrigger className="w-full sm:w-[250px]">
+                <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Filtrar por unidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Unidade Atual</SelectItem>
+                <SelectItem value="all">Todas as Unidades</SelectItem>
+                {units.map((unit) => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center min-h-[300px]">
@@ -95,6 +126,7 @@ export default function Profissionais() {
                 onEdit={handleOpenModal}
                 onDelete={handleDelete}
                 onToggleActive={handleToggleActive}
+                showUnit={showUnitBadge}
               />
             ))}
           </div>
@@ -107,6 +139,8 @@ export default function Profissionais() {
         barber={editingBarber}
         onSubmit={handleSubmit}
         isLoading={createBarber.isPending || updateBarber.isPending}
+        units={units}
+        defaultUnitId={unitFilter !== "all" && unitFilter !== "current" ? unitFilter : currentUnitId || undefined}
       />
     </DashboardLayout>
   );

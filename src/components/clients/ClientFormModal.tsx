@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, Plus, Building2 } from "lucide-react";
 import { Client, CreateClientData } from "@/hooks/useClients";
+import { Unit } from "@/hooks/useUnits";
 
 interface ClientFormModalProps {
   open: boolean;
@@ -16,6 +18,8 @@ interface ClientFormModalProps {
   onCreate?: (data: CreateClientData) => void;
   isLoading?: boolean;
   initialName?: string;
+  units?: Unit[];
+  defaultUnitId?: string;
 }
 
 const PREDEFINED_TAGS = ["VIP", "Novo", "Frequente", "Sumido"];
@@ -35,6 +39,8 @@ export function ClientFormModal({
   onCreate,
   isLoading,
   initialName = "",
+  units = [],
+  defaultUnitId,
 }: ClientFormModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,8 +48,10 @@ export function ClientFormModal({
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("");
 
   const isEditMode = !!client;
+  const showUnitSelector = !isEditMode && units.length > 1;
 
   useEffect(() => {
     if (open) {
@@ -53,16 +61,18 @@ export function ClientFormModal({
         setBirthDate(client.birth_date || "");
         setNotes(client.notes || "");
         setTags(client.tags || []);
+        setSelectedUnitId(client.unit_id);
       } else {
         setName(initialName);
         setPhone("");
         setBirthDate("");
         setNotes("");
         setTags([]);
+        setSelectedUnitId(defaultUnitId || (units.length === 1 ? units[0].id : ""));
       }
       setNewTag("");
     }
-  }, [client, open, initialName]);
+  }, [client, open, initialName, defaultUnitId, units]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhone(e.target.value));
@@ -87,6 +97,7 @@ export function ClientFormModal({
         birth_date: birthDate || null,
         notes: notes || null,
         tags,
+        unit_id: selectedUnitId || undefined,
       });
     }
   };
@@ -108,6 +119,12 @@ export function ClientFormModal({
     setTags((prev) => prev.filter((t) => t !== tag));
   };
 
+  const getUnitName = () => {
+    if (!client) return null;
+    const unit = units.find(u => u.id === client.unit_id);
+    return unit?.name || "Unidade desconhecida";
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card border-border">
@@ -118,6 +135,34 @@ export function ClientFormModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Unit Selector for new clients */}
+          {showUnitSelector && (
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unidade *</Label>
+              <Select value={selectedUnitId} onValueChange={setSelectedUnitId} required>
+                <SelectTrigger>
+                  <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Selecione a unidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Show unit info for editing */}
+          {isEditMode && units.length > 1 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg p-2">
+              <Building2 className="h-4 w-4" />
+              <span>Unidade: <strong className="text-foreground">{getUnitName()}</strong></span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="name">Nome Completo *</Label>
             <Input
@@ -210,7 +255,7 @@ export function ClientFormModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || (showUnitSelector && !selectedUnitId)}>
               {isLoading ? "Salvando..." : isEditMode ? "Salvar" : "Criar Cliente"}
             </Button>
           </div>

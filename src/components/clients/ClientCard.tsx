@@ -1,4 +1,4 @@
-import { Phone, Calendar, Clock, Edit2, Trash2 } from "lucide-react";
+import { Phone, Calendar, Clock, Edit2, Trash2, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ interface ClientCardProps {
   client: Client;
   onEdit: (client: Client) => void;
   onDelete: (client: Client) => void;
+  showUnit?: boolean;
 }
 
-export function ClientCard({ client, onEdit, onDelete }: ClientCardProps) {
+export function ClientCard({ client, onEdit, onDelete, showUnit = false }: ClientCardProps) {
   const initials = client.name
     .split(" ")
     .map((n) => n[0])
@@ -23,7 +24,6 @@ export function ClientCard({ client, onEdit, onDelete }: ClientCardProps) {
 
   const formatBirthDate = (date: string | null) => {
     if (!date) return null;
-    // Parse ISO string directly to avoid timezone conversion
     const [, month, day] = date.split('-');
     return `${day}/${month}`;
   };
@@ -56,6 +56,12 @@ export function ClientCard({ client, onEdit, onDelete }: ClientCardProps) {
                 <Phone className="h-3 w-3" />
                 <span>{client.phone}</span>
               </div>
+              {showUnit && client.unit_name && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                  <Building2 className="h-3 w-3 text-primary" />
+                  <span className="truncate">{client.unit_name}</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-1">

@@ -1,12 +1,14 @@
 import { useState, useMemo } from "react";
-import { Search, Users, Cake, Clock, Plus } from "lucide-react";
+import { Search, Users, Cake, Clock, Plus, Building2 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientCard } from "@/components/clients/ClientCard";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
 import { useClients, Client, ClientFilter, CreateClientData } from "@/hooks/useClients";
+import { useUnits } from "@/hooks/useUnits";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +27,13 @@ export default function Clientes() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [unitFilter, setUnitFilter] = useState<string>("all");
 
-  const { clients, isLoading, createClient, updateClient, deleteClient } = useClients(filter);
+  const { units } = useUnits();
+  const { clients, isLoading, createClient, updateClient, deleteClient } = useClients({
+    filter,
+    unitIdFilter: unitFilter === "all" ? null : unitFilter,
+  });
 
   const filteredClients = useMemo(() => {
     if (!search.trim()) return clients;
@@ -57,6 +64,8 @@ export default function Clientes() {
     });
   };
 
+  const showUnitBadge = unitFilter === "all" && units.length > 1;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -74,16 +83,37 @@ export default function Clientes() {
           </Button>
         </div>
 
-        {/* Search and Filters */}
+        {/* Filters Row */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou telefone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {/* Unit Filter */}
+            {units.length > 1 && (
+              <Select value={unitFilter} onValueChange={setUnitFilter}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Filtrar por unidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Unidades</SelectItem>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou telefone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
 
           <Tabs value={filter} onValueChange={(v) => setFilter(v as ClientFilter)}>
@@ -138,6 +168,7 @@ export default function Clientes() {
                 client={client}
                 onEdit={setEditingClient}
                 onDelete={setDeletingClient}
+                showUnit={showUnitBadge}
               />
             ))}
           </div>
@@ -150,6 +181,8 @@ export default function Clientes() {
         onOpenChange={setIsCreating}
         onCreate={handleCreate}
         isLoading={createClient.isPending}
+        units={units}
+        defaultUnitId={unitFilter !== "all" ? unitFilter : undefined}
       />
 
       {/* Edit Modal */}
@@ -159,6 +192,7 @@ export default function Clientes() {
         client={editingClient}
         onSave={handleSave}
         isLoading={updateClient.isPending}
+        units={units}
       />
 
       {/* Delete Confirmation */}

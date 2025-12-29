@@ -16,6 +16,7 @@ export interface Client {
   tags: string[];
   created_at: string;
   updated_at: string;
+  unit_name?: string;
 }
 
 export type CreateClientData = {
@@ -24,38 +25,67 @@ export type CreateClientData = {
   birth_date?: string | null;
   notes?: string | null;
   tags?: string[];
+  unit_id?: string;
 };
 
 export type ClientFilter = "all" | "birthday_month" | "inactive";
 
-export function useClients(filter: ClientFilter = "all") {
+interface UseClientsOptions {
+  filter?: ClientFilter;
+  unitIdFilter?: string | null; // null = all units, string = specific unit
+}
+
+export function useClients(filterOrOptions: ClientFilter | UseClientsOptions = "all") {
   const { currentUnitId } = useCurrentUnit();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const query = useQuery({
-    queryKey: ["clients", currentUnitId, filter],
-    queryFn: async () => {
-      if (!currentUnitId) return [];
+  // Handle both old signature (just filter) and new signature (options object)
+  const options: UseClientsOptions = typeof filterOrOptions === "string" 
+    ? { filter: filterOrOptions, unitIdFilter: undefined }
+    : filterOrOptions;
+  
+  const filter = options.filter || "all";
+  const unitIdFilter = options.unitIdFilter !== undefined ? options.unitIdFilter : currentUnitId;
 
+  const query = useQuery({
+    queryKey: ["clients", unitIdFilter, filter],
+    queryFn: async () => {
       let query = supabase
         .from("clients")
-        .select("*")
-        .eq("unit_id", currentUnitId)
+        .select("*, units!inner(name)")
         .order("name", { ascending: true });
+
+      // Filter by unit
+      if (unitIdFilter) {
+        query = query.eq("unit_id", unitIdFilter);
+      } else {
+        // Get all units owned by the user first
+        const { data: userUnits } = await supabase
+          .from("units")
+          .select("id");
+        
+        if (!userUnits || userUnits.length === 0) return [];
+        
+        const unitIds = userUnits.map(u => u.id);
+        query = query.in("unit_id", unitIds);
+      }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      let clients = data as Client[];
+      let clients = (data || []).map((item: any) => ({
+        ...item,
+        unit_name: item.units?.name || "Unidade desconhecida",
+        units: undefined,
+      })) as Client[];
 
       // Apply filters
       if (filter === "birthday_month") {
         const currentMonth = new Date().getMonth() + 1;
         clients = clients.filter((client) => {
           if (!client.birth_date) return false;
-          // birth_date comes as ISO string (YYYY-MM-DD). Parse without Date() to avoid timezone shifts.
           const birthMonth = Number(client.birth_date.split("-")[1]);
           return birthMonth === currentMonth;
         });
@@ -70,23 +100,24 @@ export function useClients(filter: ClientFilter = "all") {
 
       return clients;
     },
-    enabled: !!currentUnitId,
+    enabled: unitIdFilter !== undefined || unitIdFilter === null,
   });
 
   const createClient = useMutation({
     mutationFn: async (data: CreateClientData) => {
-      if (!currentUnitId) throw new Error("Unidade não selecionada");
+      const targetUnitId = data.unit_id || currentUnitId;
+      if (!targetUnitId) throw new Error("Unidade não selecionada");
 
       const { data: unit } = await supabase
         .from("units")
         .select("company_id")
-        .eq("id", currentUnitId)
+        .eq("id", targetUnitId)
         .single();
 
       const { data: newClient, error } = await supabase
         .from("clients")
         .insert({
-          unit_id: currentUnitId,
+          unit_id: targetUnitId,
           company_id: unit?.company_id,
           name: data.name,
           phone: data.phone,

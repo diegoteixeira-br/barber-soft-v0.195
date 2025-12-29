@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Barber } from "@/hooks/useBarbers";
-import { Pencil, Trash2, Phone, Percent } from "lucide-react";
+import { Pencil, Trash2, Phone, Percent, Building2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +22,10 @@ interface BarberCardProps {
   onEdit: (barber: Barber) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, is_active: boolean) => void;
+  showUnit?: boolean;
 }
 
-export function BarberCard({ barber, onEdit, onDelete, onToggleActive }: BarberCardProps) {
+export function BarberCard({ barber, onEdit, onDelete, onToggleActive, showUnit = false }: BarberCardProps) {
   const initials = barber.name
     .split(" ")
     .map((n) => n[0])
@@ -64,9 +65,16 @@ export function BarberCard({ barber, onEdit, onDelete, onToggleActive }: BarberC
             </div>
 
             {barber.phone && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
                 <Phone className="h-3 w-3" />
                 <span>{barber.phone}</span>
+              </div>
+            )}
+
+            {showUnit && barber.unit_name && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
+                <Building2 className="h-3 w-3 text-primary" />
+                <span className="truncate">{barber.unit_name}</span>
               </div>
             )}
 

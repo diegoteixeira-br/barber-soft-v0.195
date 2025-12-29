@@ -20,8 +20,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
-import { User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, Building2 } from "lucide-react";
 import { Barber } from "@/hooks/useBarbers";
+import { Unit } from "@/hooks/useUnits";
 
 const PRESET_COLORS = [
   "#FF6B00", "#D4AF37", "#22C55E", "#3B82F6", 
@@ -35,6 +37,7 @@ const barberSchema = z.object({
   calendar_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida"),
   commission_rate: z.number().min(0).max(100),
   is_active: z.boolean(),
+  unit_id: z.string().optional(),
 });
 
 type BarberFormValues = z.infer<typeof barberSchema>;
@@ -45,6 +48,8 @@ interface BarberFormModalProps {
   barber?: Barber | null;
   onSubmit: (data: BarberFormValues) => void;
   isLoading?: boolean;
+  units?: Unit[];
+  defaultUnitId?: string;
 }
 
 export function BarberFormModal({
@@ -53,6 +58,8 @@ export function BarberFormModal({
   barber,
   onSubmit,
   isLoading,
+  units = [],
+  defaultUnitId,
 }: BarberFormModalProps) {
   const form = useForm<BarberFormValues>({
     resolver: zodResolver(barberSchema),
@@ -63,10 +70,14 @@ export function BarberFormModal({
       calendar_color: "#FF6B00",
       commission_rate: 50,
       is_active: true,
+      unit_id: "",
     },
   });
 
   const [selectedColor, setSelectedColor] = useState("#FF6B00");
+  
+  const isEditMode = !!barber;
+  const showUnitSelector = !isEditMode && units.length > 1;
 
   // Reset form when modal opens/closes or barber changes
   useEffect(() => {
@@ -78,14 +89,21 @@ export function BarberFormModal({
         calendar_color: barber?.calendar_color || "#FF6B00",
         commission_rate: barber?.commission_rate || 50,
         is_active: barber?.is_active ?? true,
+        unit_id: barber?.unit_id || defaultUnitId || (units.length === 1 ? units[0]?.id : ""),
       });
       setSelectedColor(barber?.calendar_color || "#FF6B00");
     }
-  }, [open, barber, form]);
+  }, [open, barber, form, defaultUnitId, units]);
 
   const handleSubmit = (data: BarberFormValues) => {
     onSubmit(data);
     form.reset();
+  };
+
+  const getUnitName = () => {
+    if (!barber) return null;
+    const unit = units.find(u => u.id === barber.unit_id);
+    return unit?.name || barber.unit_name || "Unidade desconhecida";
   };
 
   return (
@@ -99,6 +117,43 @@ export function BarberFormModal({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {/* Unit Selector for new barbers */}
+            {showUnitSelector && (
+              <FormField
+                control={form.control}
+                name="unit_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unidade *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <SelectValue placeholder="Selecione a unidade" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {units.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* Show unit info for editing */}
+            {isEditMode && units.length > 1 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg p-2">
+                <Building2 className="h-4 w-4" />
+                <span>Unidade: <strong className="text-foreground">{getUnitName()}</strong></span>
+              </div>
+            )}
+
             {/* Avatar Upload */}
             <div className="flex justify-center pb-2">
               <AvatarUpload
@@ -199,7 +254,7 @@ export function BarberFormModal({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || (showUnitSelector && !form.watch("unit_id"))}>
                 {barber ? "Salvar" : "Adicionar"}
               </Button>
             </div>

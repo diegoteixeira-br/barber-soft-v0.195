@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Users, Cake, UserX, Search, CheckSquare, Square } from "lucide-react";
+import { Send, Users, Cake, UserX, Search, CheckSquare, Square, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { useClients, type ClientFilter } from "@/hooks/useClients";
+import { useUnits } from "@/hooks/useUnits";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
@@ -21,17 +22,24 @@ const filterOptions = [
 
 export function CampaignsTab() {
   const [filter, setFilter] = useState<ClientFilter>("all");
+  const [unitFilter, setUnitFilter] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isSending, setIsSending] = useState(false);
 
-  const { clients, isLoading } = useClients(filter);
+  const { units } = useUnits();
+  const { clients, isLoading } = useClients({
+    filter,
+    unitIdFilter: unitFilter === "all" ? null : unitFilter,
+  });
 
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.phone.includes(searchTerm)
   );
+
+  const showUnitBadge = unitFilter === "all" && units.length > 1;
 
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -64,13 +72,11 @@ export function CampaignsTab() {
     setIsSending(true);
     
     try {
-      // Build targets array from selected clients
       const targets = selectedClients.map((c) => ({
         phone: c.phone,
         name: c.name,
       }));
 
-      // Call edge function
       const { data, error } = await supabase.functions.invoke("send-marketing-campaign", {
         body: {
           message_template: message,
@@ -113,21 +119,41 @@ export function CampaignsTab() {
     <div className="space-y-6">
       {/* Filter and Search */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <Select value={filter} onValueChange={(v) => { setFilter(v as ClientFilter); setSelectedIds(new Set()); }}>
-          <SelectTrigger className="w-full sm:w-[280px]">
-            <SelectValue placeholder="Filtrar clientes" />
-          </SelectTrigger>
-          <SelectContent>
-            {filterOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                <div className="flex items-center gap-2">
-                  <opt.icon className="h-4 w-4" />
-                  {opt.label}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* Unit Filter */}
+          {units.length > 1 && (
+            <Select value={unitFilter} onValueChange={(v) => { setUnitFilter(v); setSelectedIds(new Set()); }}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Unidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Unidades</SelectItem>
+                {units.map((unit) => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <Select value={filter} onValueChange={(v) => { setFilter(v as ClientFilter); setSelectedIds(new Set()); }}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectValue placeholder="Filtrar clientes" />
+            </SelectTrigger>
+            <SelectContent>
+              {filterOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <div className="flex items-center gap-2">
+                    <opt.icon className="h-4 w-4" />
+                    {opt.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -191,6 +217,12 @@ export function CampaignsTab() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{client.name}</p>
                       <p className="text-sm text-muted-foreground">{client.phone}</p>
+                      {showUnitBadge && client.unit_name && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                          <Building2 className="h-3 w-3" />
+                          <span>{client.unit_name}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right text-xs text-muted-foreground">
                       {client.birth_date && (
@@ -227,7 +259,6 @@ export function CampaignsTab() {
               className="min-h-[200px] resize-none"
             />
 
-            {/* Preview */}
             {message && selectedClients.length > 0 && (
               <div className="rounded-lg border border-dashed p-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Prévia:</p>
