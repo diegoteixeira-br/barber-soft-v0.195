@@ -11,7 +11,7 @@ const Sobre = () => {
       '@type': 'Organization',
       name: 'BarberSoft',
       description: 'Sistema de gestão para barbearias com inteligência artificial',
-      foundingDate: '2024',
+      foundingDate: '2025',
       founders: [{ '@type': 'Person', name: 'Equipe BarberSoft' }]
     }
   };
@@ -39,7 +39,7 @@ const Sobre = () => {
               <h2 className="text-2xl font-bold mb-4">Nossa História</h2>
               <p className="text-muted-foreground mb-4">
                 O BarberSoft nasceu da necessidade real de modernizar a gestão de barbearias no Brasil. 
-                Fundado em 2024, nosso objetivo sempre foi claro: criar uma solução completa que 
+                Fundado em 2025, nosso objetivo sempre foi claro: criar uma solução completa que 
                 automatize processos e libere tempo para o que realmente importa – atender bem os clientes.
               </p>
               <p className="text-muted-foreground">
