@@ -1,7 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play } from "lucide-react";
 import { ChatSimulation } from "./ChatSimulation";
+import { DashboardPreview } from "./DashboardPreview";
 import { useNavigate } from "react-router-dom";
+
+const scrollToFeatures = () => {
+  const element = document.getElementById("funcionalidades");
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth" });
+  }
+};
 
 export function HeroSection() {
   const navigate = useNavigate();
@@ -47,6 +55,7 @@ export function HeroSection() {
                 size="lg"
                 variant="outline"
                 className="border-border/50 hover:bg-muted/50 text-lg px-8 py-6"
+                onClick={scrollToFeatures}
               >
                 <Play className="mr-2 h-5 w-5" />
                 Ver Demo
@@ -86,12 +95,7 @@ export function HeroSection() {
                 <div className="w-3 h-3 rounded-full bg-green-500" />
               </div>
               <div className="aspect-video bg-background rounded overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop"
-                  alt="Dashboard BarberSoft - Gestão completa da sua barbearia"
-                  className="w-full h-full object-cover opacity-80"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+                <DashboardPreview />
               </div>
             </div>
 

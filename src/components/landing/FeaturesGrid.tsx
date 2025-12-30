@@ -51,7 +51,7 @@ export function FeaturesGrid() {
   const { ref, isVisible } = useScrollAnimation();
 
   return (
-    <section id="funcionalidades" className="py-20 bg-background relative">
+    <section id="funcionalidades" className="py-20 bg-background relative scroll-mt-20">
       <div className="container mx-auto px-4">
         <div
           ref={ref}
