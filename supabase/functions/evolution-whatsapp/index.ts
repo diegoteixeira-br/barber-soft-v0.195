@@ -190,11 +190,22 @@ serve(async (req) => {
         console.log('Status response:', JSON.stringify(statusData));
 
         if (!statusResponse.ok) {
-          // Instance might not exist anymore
+          // Instance might not exist anymore - clean up database
           if (statusResponse.status === 404) {
+            console.log('Instance not found in Evolution API, cleaning up database...');
+            await supabase
+              .from('units')
+              .update({
+                evolution_instance_name: null,
+                evolution_api_key: null,
+              })
+              .eq('id', unit.id);
+
             return new Response(JSON.stringify({
               success: true,
               state: 'disconnected',
+              cleaned: true,
+              message: 'Instância não encontrada, dados limpos'
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
@@ -202,9 +213,50 @@ serve(async (req) => {
           throw new Error(statusData.message || 'Erro ao verificar status');
         }
 
+        const state = statusData.state || statusData.instance?.state || 'unknown';
+
+        // Auto-cleanup: if state is 'close' (QR expired without connection), delete the orphaned instance
+        if (state === 'close') {
+          console.log('Instance is in close state (orphaned), cleaning up...');
+          
+          // Delete instance from Evolution API
+          try {
+            await fetch(
+              `${EVOLUTION_API_URL}/instance/delete/${unit.evolution_instance_name}`,
+              {
+                method: 'DELETE',
+                headers: {
+                  'apikey': EVOLUTION_GLOBAL_KEY!,
+                },
+              }
+            );
+            console.log('Orphaned instance deleted from Evolution API');
+          } catch (e) {
+            console.log('Delete orphaned instance error (non-critical):', e);
+          }
+
+          // Clear database
+          await supabase
+            .from('units')
+            .update({
+              evolution_instance_name: null,
+              evolution_api_key: null,
+            })
+            .eq('id', unit.id);
+
+          return new Response(JSON.stringify({
+            success: true,
+            state: 'disconnected',
+            cleaned: true,
+            message: 'Instância expirada foi removida automaticamente'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         return new Response(JSON.stringify({
           success: true,
-          state: statusData.state || statusData.instance?.state || 'unknown',
+          state,
           instanceName: unit.evolution_instance_name,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

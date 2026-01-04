@@ -1,3 +1,4 @@
+import { useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -5,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Unit } from "@/hooks/useUnits";
-import { UnitWhatsAppIntegration } from "./UnitWhatsAppIntegration";
+import { UnitWhatsAppIntegration, UnitWhatsAppIntegrationRef } from "./UnitWhatsAppIntegration";
 
 interface UnitWhatsAppModalProps {
   open: boolean;
@@ -15,15 +16,29 @@ interface UnitWhatsAppModalProps {
 }
 
 export function UnitWhatsAppModal({ open, onClose, unit, onConnectionChange }: UnitWhatsAppModalProps) {
+  const integrationRef = useRef<UnitWhatsAppIntegrationRef | null>(null);
+
+  const handleClose = useCallback(async (isOpen: boolean) => {
+    if (!isOpen && integrationRef.current) {
+      // Cleanup orphaned instance when modal closes during connecting state
+      await integrationRef.current.cleanupOnClose();
+    }
+    onClose();
+  }, [onClose]);
+
   if (!unit) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>WhatsApp - {unit.name}</DialogTitle>
         </DialogHeader>
-        <UnitWhatsAppIntegration unit={unit} onConnectionChange={onConnectionChange} />
+        <UnitWhatsAppIntegration 
+          ref={integrationRef}
+          unit={unit} 
+          onConnectionChange={onConnectionChange} 
+        />
       </DialogContent>
     </Dialog>
   );
