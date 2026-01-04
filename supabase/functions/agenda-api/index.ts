@@ -228,7 +228,9 @@ async function handleCheck(supabase: any, body: any, corsHeaders: any) {
 async function handleCreate(supabase: any, body: any, corsHeaders: any) {
   // Normalizar campos (aceitar ambos formatos)
   const clientName = body.nome || body.client_name;
-  const clientPhone = body.telefone || body.client_phone;
+  const rawPhone = body.telefone || body.client_phone;
+  // Normalizar telefone - remover caracteres especiais para consistência
+  const clientPhone = rawPhone?.replace(/\D/g, '') || null;
   const dateTime = body.data || body.datetime;
   const barberName = body.barbeiro_nome || body.professional;
   const serviceName = body.servico || body.service;
@@ -246,13 +248,14 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
   }
 
   console.log(`Creating appointment: ${clientName} with ${barberName} for ${serviceName} at ${dateTime}`);
+  console.log(`Normalized phone: ${clientPhone}`);
 
   // === VERIFICAR/CRIAR CLIENTE ===
   let clientCreated = false;
   let clientData = null;
 
   if (clientPhone) {
-    // Buscar cliente existente pelo telefone
+    // Buscar cliente existente pelo telefone normalizado
     const { data: existingClient, error: clientFetchError } = await supabase
       .from('clients')
       .select('id, name, phone, total_visits')
@@ -265,16 +268,16 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
     }
 
     if (existingClient) {
-      console.log('Client already exists:', existingClient);
+      console.log('Cliente existente encontrado:', existingClient);
       clientData = existingClient;
     } else {
-      // Criar novo cliente
-      console.log(`Creating new client: ${clientName} - ${clientPhone}`);
+      // Criar novo cliente - BLOQUEAR se falhar
+      console.log(`Criando novo cliente: ${clientName} - ${clientPhone}`);
       const { data: newClient, error: clientCreateError } = await supabase
         .from('clients')
         .insert({
           unit_id,
-          company_id,
+          company_id: company_id || null,
           name: clientName,
           phone: clientPhone,
           total_visits: 0
@@ -283,13 +286,19 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
         .single();
 
       if (clientCreateError) {
-        console.error('Error creating client:', clientCreateError);
-        // Não bloquear - continuar mesmo sem criar cliente
-      } else {
-        console.log('New client created:', newClient);
-        clientData = newClient;
-        clientCreated = true;
+        console.error('ERRO ao criar cliente:', clientCreateError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Erro ao criar cliente: ${clientCreateError.message}` 
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      
+      console.log('Novo cliente criado com sucesso:', newClient);
+      clientData = newClient;
+      clientCreated = true;
     }
   }
 
@@ -419,7 +428,9 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
 async function handleCancel(supabase: any, body: any, corsHeaders: any) {
   // Normalizar campos
   const appointmentId = body.appointment_id;
-  const clientPhone = body.telefone || body.client_phone;
+  const rawPhone = body.telefone || body.client_phone;
+  // Normalizar telefone - remover caracteres especiais para consistência
+  const clientPhone = rawPhone?.replace(/\D/g, '') || null;
   const targetDate = body.data || body.datetime;
   const { unit_id } = body;
 
