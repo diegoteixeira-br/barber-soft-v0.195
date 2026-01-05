@@ -60,8 +60,14 @@ export default function Agenda() {
     updateAppointment,
     updateStatus,
     deleteAppointment,
+    deleteCancelledAppointments,
     createQuickService,
   } = useAppointments(dateRange.start, dateRange.end, selectedBarberId);
+
+  // Count cancelled appointments
+  const cancelledCount = useMemo(() => {
+    return allAppointments.filter(apt => apt.status === 'cancelled').length;
+  }, [allAppointments]);
 
   // Filter appointments based on showCancelled toggle
   const appointments = useMemo(() => {
@@ -151,10 +157,13 @@ export default function Agenda() {
           barbers={barbers}
           selectedBarberId={selectedBarberId}
           showCancelled={showCancelled}
+          cancelledCount={cancelledCount}
           onDateChange={setCurrentDate}
           onViewChange={setView}
           onBarberChange={setSelectedBarberId}
           onShowCancelledChange={setShowCancelled}
+          onClearCancelled={() => deleteCancelledAppointments.mutate()}
+          isClearingCancelled={deleteCancelledAppointments.isPending}
           onNewAppointment={handleNewAppointment}
           onQuickService={() => setIsQuickServiceModalOpen(true)}
           onRefresh={() => refetchAppointments()}
