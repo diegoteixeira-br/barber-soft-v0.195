@@ -9,6 +9,16 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUnit } from "@/contexts/UnitContext";
 import { toast } from "sonner";
@@ -48,6 +58,7 @@ export function CampaignHistoryTab() {
   const [campaignLogs, setCampaignLogs] = useState<Map<string, MessageLog[]>>(new Map());
   const [loadingLogs, setLoadingLogs] = useState<string | null>(null);
   const [cancelingCampaign, setCancelingCampaign] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const { currentCompanyId } = useCurrentUnit();
 
   // Fetch campaigns
@@ -290,7 +301,7 @@ export function CampaignHistoryTab() {
                             className="text-amber-600 border-amber-500 hover:bg-amber-50"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCancelCampaign(campaign.id);
+                              setConfirmCancelId(campaign.id);
                             }}
                             disabled={cancelingCampaign === campaign.id}
                           >
@@ -397,6 +408,31 @@ export function CampaignHistoryTab() {
           })}
         </div>
       </ScrollArea>
+
+      <AlertDialog open={!!confirmCancelId} onOpenChange={(open) => !open && setConfirmCancelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar campanha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar esta campanha? Os envios pendentes serão interrompidos e não poderão ser retomados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={() => {
+                if (confirmCancelId) {
+                  handleCancelCampaign(confirmCancelId);
+                  setConfirmCancelId(null);
+                }
+              }}
+            >
+              Confirmar cancelamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
