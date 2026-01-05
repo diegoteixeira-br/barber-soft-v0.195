@@ -10,6 +10,9 @@ export interface BusinessSettings {
   opening_time: string | null;
   closing_time: string | null;
   webhook_url: string | null;
+  cancellation_time_limit_hours: number | null;
+  late_cancellation_fee_percent: number | null;
+  no_show_fee_percent: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +23,9 @@ export interface BusinessSettingsInput {
   opening_time?: string | null;
   closing_time?: string | null;
   webhook_url?: string | null;
+  cancellation_time_limit_hours?: number | null;
+  late_cancellation_fee_percent?: number | null;
+  no_show_fee_percent?: number | null;
 }
 
 export function useBusinessSettings() {

@@ -203,10 +203,13 @@ export type Database = {
           birthday_automation_enabled: boolean | null
           birthday_message_template: string | null
           business_name: string | null
+          cancellation_time_limit_hours: number | null
           closing_time: string | null
           created_at: string | null
           id: string
+          late_cancellation_fee_percent: number | null
           logo_url: string | null
+          no_show_fee_percent: number | null
           opening_time: string | null
           rescue_automation_enabled: boolean | null
           rescue_days_threshold: number | null
@@ -221,10 +224,13 @@ export type Database = {
           birthday_automation_enabled?: boolean | null
           birthday_message_template?: string | null
           business_name?: string | null
+          cancellation_time_limit_hours?: number | null
           closing_time?: string | null
           created_at?: string | null
           id?: string
+          late_cancellation_fee_percent?: number | null
           logo_url?: string | null
+          no_show_fee_percent?: number | null
           opening_time?: string | null
           rescue_automation_enabled?: boolean | null
           rescue_days_threshold?: number | null
@@ -239,10 +245,13 @@ export type Database = {
           birthday_automation_enabled?: boolean | null
           birthday_message_template?: string | null
           business_name?: string | null
+          cancellation_time_limit_hours?: number | null
           closing_time?: string | null
           created_at?: string | null
           id?: string
+          late_cancellation_fee_percent?: number | null
           logo_url?: string | null
+          no_show_fee_percent?: number | null
           opening_time?: string | null
           rescue_automation_enabled?: boolean | null
           rescue_days_threshold?: number | null
