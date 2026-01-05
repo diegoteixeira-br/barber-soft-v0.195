@@ -13,6 +13,7 @@ export interface MarketingSettings {
   appointment_reminder_enabled: boolean;
   appointment_reminder_minutes: number;
   appointment_reminder_template: string;
+  vocal_notification_enabled: boolean;
 }
 
 export function useMarketingSettings() {
@@ -26,7 +27,7 @@ export function useMarketingSettings() {
 
       const { data, error } = await supabase
         .from("business_settings")
-        .select("birthday_automation_enabled, birthday_message_template, rescue_automation_enabled, rescue_days_threshold, rescue_message_template, automation_send_hour, automation_send_minute, appointment_reminder_enabled, appointment_reminder_minutes, appointment_reminder_template")
+        .select("birthday_automation_enabled, birthday_message_template, rescue_automation_enabled, rescue_days_threshold, rescue_message_template, automation_send_hour, automation_send_minute, appointment_reminder_enabled, appointment_reminder_minutes, appointment_reminder_template, vocal_notification_enabled")
         .eq("user_id", user.id)
         .maybeSingle();
 

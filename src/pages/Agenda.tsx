@@ -14,6 +14,7 @@ import { useAppointments, type Appointment, type AppointmentFormData, type Quick
 import { useBarbers } from "@/hooks/useBarbers";
 import { useServices } from "@/hooks/useServices";
 import { useCurrentUnit } from "@/contexts/UnitContext";
+import { useAppointmentNotification } from "@/hooks/useAppointmentNotification";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, History, CheckCircle2, XCircle } from "lucide-react";
@@ -23,6 +24,9 @@ type AppointmentStatus = Database["public"]["Enums"]["appointment_status"];
 
 export default function Agenda() {
   const { currentUnitId } = useCurrentUnit();
+  
+  // Enable vocal notification for new appointments
+  useAppointmentNotification();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarViewType>("week");
   const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);

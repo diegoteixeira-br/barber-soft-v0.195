@@ -238,6 +238,7 @@ export type Database = {
           rescue_message_template: string | null
           updated_at: string | null
           user_id: string
+          vocal_notification_enabled: boolean | null
           webhook_url: string | null
         }
         Insert: {
@@ -262,6 +263,7 @@ export type Database = {
           rescue_message_template?: string | null
           updated_at?: string | null
           user_id: string
+          vocal_notification_enabled?: boolean | null
           webhook_url?: string | null
         }
         Update: {
@@ -286,6 +288,7 @@ export type Database = {
           rescue_message_template?: string | null
           updated_at?: string | null
           user_id?: string
+          vocal_notification_enabled?: boolean | null
           webhook_url?: string | null
         }
         Relationships: []
