@@ -173,8 +173,10 @@ serve(async (req) => {
     // Build contacts array with log IDs for callback
     const contacts = targets.map((t) => {
       const log = insertedLogs?.find((l) => l.recipient_phone === t.phone);
+      // Remove non-digits, remove leading 55 if present, then add 55 prefix
+      const cleanNumber = t.phone.replace(/\D/g, "").replace(/^55/, "");
       return {
-        number: t.phone.replace(/\D/g, ""), // Remove formatting
+        number: "55" + cleanNumber,
         text: message_template.replace(/\{\{nome\}\}/g, t.name),
         log_id: log?.id || null,
       };
