@@ -119,6 +119,28 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
     enabled: !!currentUnitId,
   });
 
+  // Check for conflicts before creating/updating
+  const checkConflict = async (barberId: string, startTime: Date, endTime: Date, excludeAppointmentId?: string) => {
+    if (!currentUnitId) return false;
+
+    let queryBuilder = supabase
+      .from("appointments")
+      .select("id, start_time, end_time, client_name")
+      .eq("unit_id", currentUnitId)
+      .eq("barber_id", barberId)
+      .neq("status", "cancelled")
+      .lt("start_time", endTime.toISOString())
+      .gt("end_time", startTime.toISOString());
+
+    if (excludeAppointmentId) {
+      queryBuilder = queryBuilder.neq("id", excludeAppointmentId);
+    }
+
+    const { data, error } = await queryBuilder;
+    if (error) throw error;
+    return data && data.length > 0 ? data[0] : null;
+  };
+
   const createAppointment = useMutation({
     mutationFn: async (data: AppointmentFormData) => {
       if (!currentUnitId) throw new Error("Nenhuma unidade selecionada");
@@ -134,6 +156,12 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
 
       const startTime = new Date(data.start_time);
       const endTime = new Date(startTime.getTime() + service.duration_minutes * 60000);
+
+      // Check for conflicts with active appointments
+      const conflict = await checkConflict(data.barber_id, startTime, endTime);
+      if (conflict) {
+        throw new Error(`Horário ocupado! ${conflict.client_name} já tem agendamento nesse horário.`);
+      }
 
       const { data: appointment, error } = await supabase
         .from("appointments")
@@ -274,6 +302,28 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
     },
   });
 
+  // Delete all cancelled appointments (cleanup)
+  const deleteCancelledAppointments = useMutation({
+    mutationFn: async () => {
+      if (!currentUnitId) throw new Error("Nenhuma unidade selecionada");
+      
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("unit_id", currentUnitId)
+        .eq("status", "cancelled");
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast({ title: "Agendamentos cancelados excluídos!" });
+    },
+    onError: (error) => {
+      toast({ title: "Erro ao limpar cancelados", description: error.message, variant: "destructive" });
+    },
+  });
+
   // Create quick service (already completed)
   const createQuickService = useMutation({
     mutationFn: async (data: QuickServiceFormData) => {
@@ -332,6 +382,7 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
     updateAppointment,
     updateStatus,
     deleteAppointment,
+    deleteCancelledAppointments,
     createQuickService,
   };
 }
