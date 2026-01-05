@@ -30,7 +30,14 @@ export function useAppointmentNotification() {
             barber_id: string | null;
             service_id: string | null;
             start_time: string;
+            source: string | null;
           };
+
+          // Only notify for WhatsApp appointments
+          if (newAppointment.source !== 'whatsapp') {
+            console.log('Skipping notification: not a WhatsApp appointment');
+            return;
+          }
 
           // Avoid duplicate notifications
           if (processedIdsRef.current.has(newAppointment.id)) return;

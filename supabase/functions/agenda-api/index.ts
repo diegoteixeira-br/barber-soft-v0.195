@@ -576,7 +576,7 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
     );
   }
 
-  // Criar o agendamento
+  // Criar o agendamento (source = 'whatsapp' pois veio pela API)
   const { data: appointment, error: createError } = await supabase
     .from('appointments')
     .insert({
@@ -586,10 +586,12 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
       service_id: selectedService.id,
       client_name: clientName,
       client_phone: clientPhone || null,
+      client_birth_date: clientBirthDate || null,
       start_time: startTime.toISOString(),
       end_time: endTime.toISOString(),
       total_price: selectedService.price,
-      status: 'pending'
+      status: 'pending',
+      source: 'whatsapp'
     })
     .select()
     .single();
