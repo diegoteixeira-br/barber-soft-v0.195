@@ -97,6 +97,11 @@ export function PricingSection() {
               <p className="text-xs md:text-sm opacity-90">
                 Use a plataforma completa gratuitamente. Sem cartão de crédito, sem compromisso.
               </p>
+              <div className="mt-2 px-4 py-1 bg-white/20 rounded-full">
+                <p className="text-sm font-bold flex items-center gap-2">
+                  🔥 Apenas <span className="text-yellow-300 text-lg">25</span> vagas para testadores!
+                </p>
+              </div>
             </div>
           </div>
         </div>
