@@ -110,10 +110,10 @@ serve(async (req) => {
     if (instance_name && !resolvedUnitId) {
       console.log(`Looking up unit by instance_name: ${instance_name}`);
       
-      // Busca direto na tabela units pelo evolution_instance_name
+      // Busca direto na tabela units pelo evolution_instance_name (inclui credenciais Evolution)
       const { data: unit, error: unitError } = await supabase
         .from('units')
-        .select('id, company_id, timezone')
+        .select('id, company_id, timezone, evolution_instance_name, evolution_api_key')
         .eq('evolution_instance_name', instance_name)
         .maybeSingle();
       
@@ -139,8 +139,29 @@ serve(async (req) => {
       console.log(`Resolved unit_id: ${resolvedUnitId}, company_id: ${companyId}, timezone: ${unitTimezone}`);
     }
 
-    // Passar o unit_id resolvido para os handlers
-    const enrichedBody = { ...body, unit_id: resolvedUnitId, company_id: companyId, unit_timezone: unitTimezone };
+    // Passar o unit_id resolvido para os handlers (inclui credenciais Evolution se disponíveis)
+    const enrichedBody = { 
+      ...body, 
+      unit_id: resolvedUnitId, 
+      company_id: companyId, 
+      unit_timezone: unitTimezone,
+      evolution_instance_name: body.evolution_instance_name || (instance_name ? instance_name : null),
+      evolution_api_key: body.evolution_api_key || null
+    };
+    
+    // Se buscamos a unidade por instance_name, adicionar as credenciais
+    if (instance_name && !body.unit_id) {
+      const { data: unitCreds } = await supabase
+        .from('units')
+        .select('evolution_instance_name, evolution_api_key')
+        .eq('id', resolvedUnitId)
+        .single();
+      
+      if (unitCreds) {
+        enrichedBody.evolution_instance_name = unitCreds.evolution_instance_name;
+        enrichedBody.evolution_api_key = unitCreds.evolution_api_key;
+      }
+    }
 
     switch (action) {
       // Consultar disponibilidade (alias: check_availability)
@@ -672,6 +693,70 @@ async function handleCreate(supabase: any, body: any, corsHeaders: any) {
 
   console.log('Appointment created:', appointment);
 
+  // === ENVIO DE CONFIRMAÇÃO VIA WHATSAPP (não-bloqueante) ===
+  const { evolution_instance_name, evolution_api_key } = body;
+
+  if (clientPhone && evolution_instance_name && evolution_api_key) {
+    try {
+      // Formatar telefone: adicionar 55 se necessário (apenas para envio)
+      let phoneForMessage = clientPhone.replace(/\D/g, '');
+      if (!phoneForMessage.startsWith('55') && phoneForMessage.length <= 11) {
+        phoneForMessage = '55' + phoneForMessage;
+      }
+      
+      console.log(`Tentando enviar confirmação para ${phoneForMessage}...`);
+      
+      const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://api.evolution.barbersoft.com.br';
+      const evolutionUrl = `${evolutionApiUrl}/message/sendText/${evolution_instance_name}`;
+      
+      // Formatar data/hora para exibição
+      const startDate = new Date(startTime);
+      const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: finalTimezone,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const formattedDateTime = dateFormatter.format(startDate);
+      
+      const confirmationMessage = `✅ *Agendamento Confirmado!*\n\n` +
+        `Olá ${clientName}!\n\n` +
+        `Seu agendamento foi realizado com sucesso:\n\n` +
+        `📅 *Data/Hora:* ${formattedDateTime}\n` +
+        `✂️ *Serviço:* ${selectedService.name}\n` +
+        `💈 *Profissional:* ${barber.name}\n` +
+        `💰 *Valor:* R$ ${selectedService.price.toFixed(2)}\n\n` +
+        `Até lá! 💈`;
+      
+      // Enviar sem await (fire-and-forget) - não bloquear resposta
+      fetch(evolutionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolution_api_key,
+        },
+        body: JSON.stringify({
+          number: phoneForMessage,
+          text: confirmationMessage,
+        }),
+      }).then(res => {
+        console.log(`Mensagem de confirmação enviada: ${res.status}`);
+      }).catch(err => {
+        console.error('Erro ao enviar mensagem (não-crítico):', err.message);
+      });
+      
+      console.log('Envio de confirmação disparado (fire-and-forget)');
+    } catch (msgError) {
+      // Log do erro mas NÃO falhar o agendamento
+      console.error('Erro ao preparar mensagem de confirmação:', msgError);
+    }
+  } else {
+    console.log('Confirmação WhatsApp não enviada - credenciais ou telefone ausentes');
+  }
+
+  // Retornar sucesso IMEDIATAMENTE (não espera a mensagem)
   return new Response(
     JSON.stringify({
       success: true,
