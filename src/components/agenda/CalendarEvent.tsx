@@ -6,14 +6,39 @@ interface CalendarEventProps {
   appointment: Appointment;
   onClick: () => void;
   compact?: boolean;
+  ultraCompact?: boolean;
 }
 
-export function CalendarEvent({ appointment, onClick, compact = false }: CalendarEventProps) {
+export function CalendarEvent({ appointment, onClick, compact = false, ultraCompact = false }: CalendarEventProps) {
   const barberColor = appointment.barber?.calendar_color || "#FF6B00";
   const startTime = format(new Date(appointment.start_time), "HH:mm");
   const endTime = format(new Date(appointment.end_time), "HH:mm");
   const isCancelled = appointment.status === "cancelled";
   const isCompleted = appointment.status === "completed";
+
+  // Ultra compact mode: colored dot + time + client name in single line
+  if (ultraCompact) {
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        className={cn(
+          "w-full text-left flex items-center gap-1 py-0.5 px-1 rounded text-[11px] hover:bg-muted/50 transition-colors truncate",
+          isCancelled && "opacity-50 line-through"
+        )}
+        title={`${startTime} - ${appointment.client_name} (${appointment.barber?.name || 'N/A'})`}
+      >
+        <span 
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ backgroundColor: isCancelled ? "hsl(var(--muted-foreground))" : barberColor }}
+        />
+        <span className="font-semibold shrink-0">{startTime}</span>
+        <span className="truncate text-muted-foreground">{appointment.client_name}</span>
+      </button>
+    );
+  }
 
   if (compact) {
     return (
