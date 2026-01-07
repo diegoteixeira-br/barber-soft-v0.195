@@ -1104,6 +1104,10 @@ async function handleUpdateClient(supabase: any, body: any, corsHeaders: any) {
   const newName = body.nome || body.name || null;
   const newBirthDate = body.data_nascimento || body.birth_date || null;
   const newNotes = body.observacoes || body.observations || body.notes;
+  
+  // Novo telefone (opcional) - permite alterar o próprio telefone do cliente
+  const rawNewPhone = body.novo_telefone || body.new_phone;
+  const newPhone = rawNewPhone?.replace(/\D/g, '') || null;
 
   // Validações obrigatórias
   if (!clientPhone) {
@@ -1125,16 +1129,17 @@ async function handleUpdateClient(supabase: any, body: any, corsHeaders: any) {
   const hasNameToUpdate = newName !== null;
   const hasBirthDateToUpdate = newBirthDate !== null;
   const hasNotesToUpdate = newNotes !== undefined;
+  const hasPhoneToUpdate = newPhone !== null;
 
-  if (!hasNameToUpdate && !hasBirthDateToUpdate && !hasNotesToUpdate) {
+  if (!hasNameToUpdate && !hasBirthDateToUpdate && !hasNotesToUpdate && !hasPhoneToUpdate) {
     return new Response(
-      JSON.stringify({ success: false, error: 'Envie pelo menos um campo para atualizar (name, birth_date, observations)' }),
+      JSON.stringify({ success: false, error: 'Envie pelo menos um campo para atualizar (name, birth_date, observations, new_phone)' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
   console.log(`Updating client with phone: ${clientPhone}, unit: ${unit_id}`);
-  console.log(`Fields to update - name: ${newName}, birth_date: ${newBirthDate}, notes: ${newNotes}`);
+  console.log(`Fields to update - name: ${newName}, birth_date: ${newBirthDate}, notes: ${newNotes}, new_phone: ${newPhone}`);
 
   // Buscar cliente pelo telefone
   const { data: client, error: clientError } = await supabase
@@ -1176,6 +1181,10 @@ async function handleUpdateClient(supabase: any, body: any, corsHeaders: any) {
   if (hasNotesToUpdate) {
     updateData.notes = newNotes || null; // Permite limpar as observações
     updatedFields.push('notes');
+  }
+  if (hasPhoneToUpdate) {
+    updateData.phone = newPhone;
+    updatedFields.push('phone');
   }
   updateData.updated_at = new Date().toISOString();
 
