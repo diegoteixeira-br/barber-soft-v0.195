@@ -6,8 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Secret for validating requests from n8n (same as other campaign functions)
-const CALLBACK_SECRET = "X7kP9mN3qR8sT2wZ";
+// Secret for validating requests from n8n - loaded from environment variable
+const CALLBACK_SECRET = Deno.env.get("N8N_CALLBACK_SECRET");
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -38,8 +38,8 @@ serve(async (req) => {
     console.log(`Check campaign status request for: ${campaign_id}`);
 
     // Validate secret
-    if (secret !== CALLBACK_SECRET) {
-      console.error("Invalid callback secret");
+    if (!CALLBACK_SECRET || secret !== CALLBACK_SECRET) {
+      console.error("Invalid or missing callback secret");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

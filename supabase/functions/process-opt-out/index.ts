@@ -32,7 +32,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const evolutionApiUrl = Deno.env.get("EVOLUTION_API_URL")!;
-    const expectedSecret = "X7kP9mN3qR8sT2wZ";
+    const expectedSecret = Deno.env.get("N8N_CALLBACK_SECRET");
 
     const body: OptOutRequest = await req.json();
     const { instanceName, sender, message, secret, action = "opt_out" } = body;
@@ -40,8 +40,8 @@ serve(async (req) => {
     console.log(`[process-opt-out] Received request for ${sender}, action: ${action}`);
 
     // Validate secret
-    if (secret !== expectedSecret) {
-      console.error("[process-opt-out] Invalid secret");
+    if (!expectedSecret || secret !== expectedSecret) {
+      console.error("[process-opt-out] Invalid or missing secret");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

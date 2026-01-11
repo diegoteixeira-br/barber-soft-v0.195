@@ -220,8 +220,8 @@ serve(async (req) => {
       };
     });
 
-    // Secret for callback validation - must match edge functions
-    const callbackSecret = "X7kP9mN3qR8sT2wZ";
+    // Secret for callback validation - loaded from environment variable
+    const callbackSecret = Deno.env.get("N8N_CALLBACK_SECRET");
 
     // Build n8n payload matching the workflow format
     const n8nPayload = {
