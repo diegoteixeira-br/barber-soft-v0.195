@@ -13,6 +13,9 @@ export interface BusinessSettings {
   cancellation_time_limit_minutes: number | null;
   late_cancellation_fee_percent: number | null;
   no_show_fee_percent: number | null;
+  debit_card_fee_percent: number | null;
+  credit_card_fee_percent: number | null;
+  commission_calculation_base: 'gross' | 'net' | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +29,9 @@ export interface BusinessSettingsInput {
   cancellation_time_limit_minutes?: number | null;
   late_cancellation_fee_percent?: number | null;
   no_show_fee_percent?: number | null;
+  debit_card_fee_percent?: number | null;
+  credit_card_fee_percent?: number | null;
+  commission_calculation_base?: 'gross' | 'net' | null;
 }
 
 export function useBusinessSettings() {

@@ -233,7 +233,10 @@ export type Database = {
           business_name: string | null
           cancellation_time_limit_minutes: number | null
           closing_time: string | null
+          commission_calculation_base: string | null
           created_at: string | null
+          credit_card_fee_percent: number | null
+          debit_card_fee_percent: number | null
           id: string
           late_cancellation_fee_percent: number | null
           logo_url: string | null
@@ -259,7 +262,10 @@ export type Database = {
           business_name?: string | null
           cancellation_time_limit_minutes?: number | null
           closing_time?: string | null
+          commission_calculation_base?: string | null
           created_at?: string | null
+          credit_card_fee_percent?: number | null
+          debit_card_fee_percent?: number | null
           id?: string
           late_cancellation_fee_percent?: number | null
           logo_url?: string | null
@@ -285,7 +291,10 @@ export type Database = {
           business_name?: string | null
           cancellation_time_limit_minutes?: number | null
           closing_time?: string | null
+          commission_calculation_base?: string | null
           created_at?: string | null
+          credit_card_fee_percent?: number | null
+          debit_card_fee_percent?: number | null
           id?: string
           late_cancellation_fee_percent?: number | null
           logo_url?: string | null

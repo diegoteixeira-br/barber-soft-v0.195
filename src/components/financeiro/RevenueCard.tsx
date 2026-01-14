@@ -7,7 +7,7 @@ interface RevenueCardProps {
   value: string;
   subtitle?: string;
   icon: LucideIcon;
-  variant?: "default" | "success" | "warning" | "info";
+  variant?: "default" | "success" | "warning" | "info" | "danger";
 }
 
 const variantStyles = {
@@ -15,6 +15,7 @@ const variantStyles = {
   success: "bg-emerald-500/10 border-emerald-500/30",
   warning: "bg-primary/10 border-primary/30",
   info: "bg-blue-500/10 border-blue-500/30",
+  danger: "bg-red-500/10 border-red-500/30",
 };
 
 const iconStyles = {
@@ -22,6 +23,7 @@ const iconStyles = {
   success: "text-emerald-500",
   warning: "text-primary",
   info: "text-blue-500",
+  danger: "text-red-500",
 };
 
 export function RevenueCard({ title, value, subtitle, icon: Icon, variant = "default" }: RevenueCardProps) {

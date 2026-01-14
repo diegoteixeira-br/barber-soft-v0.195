@@ -111,3 +111,70 @@ export function calculateCommission(totalPrice: number, commissionRate: number |
 export function calculateProfit(totalPrice: number, commissionRate: number | null): number {
   return totalPrice - calculateCommission(totalPrice, commissionRate);
 }
+
+// Calculate card fee based on payment method
+export function calculateCardFee(
+  totalPrice: number,
+  paymentMethod: string | null,
+  debitFeePercent: number,
+  creditFeePercent: number
+): number {
+  if (paymentMethod === "debit_card") {
+    return totalPrice * (debitFeePercent / 100);
+  }
+  if (paymentMethod === "credit_card") {
+    return totalPrice * (creditFeePercent / 100);
+  }
+  return 0; // Cash and PIX have no fee
+}
+
+// Calculate net value (after card fee)
+export function calculateNetValue(
+  totalPrice: number,
+  paymentMethod: string | null,
+  debitFeePercent: number,
+  creditFeePercent: number
+): number {
+  return totalPrice - calculateCardFee(totalPrice, paymentMethod, debitFeePercent, creditFeePercent);
+}
+
+// Calculate commission based on configuration (gross or net)
+export function calculateCommissionWithFees(
+  totalPrice: number,
+  paymentMethod: string | null,
+  commissionRate: number | null,
+  debitFeePercent: number,
+  creditFeePercent: number,
+  calculationBase: 'gross' | 'net'
+): number {
+  const rate = commissionRate ?? 50;
+  
+  if (calculationBase === 'net') {
+    const netValue = calculateNetValue(totalPrice, paymentMethod, debitFeePercent, creditFeePercent);
+    return netValue * (rate / 100);
+  }
+  
+  // Gross base - commission on total value
+  return totalPrice * (rate / 100);
+}
+
+// Calculate profit considering card fees and commission base
+export function calculateProfitWithFees(
+  totalPrice: number,
+  paymentMethod: string | null,
+  commissionRate: number | null,
+  debitFeePercent: number,
+  creditFeePercent: number,
+  calculationBase: 'gross' | 'net'
+): number {
+  const cardFee = calculateCardFee(totalPrice, paymentMethod, debitFeePercent, creditFeePercent);
+  const commission = calculateCommissionWithFees(
+    totalPrice,
+    paymentMethod,
+    commissionRate,
+    debitFeePercent,
+    creditFeePercent,
+    calculationBase
+  );
+  return totalPrice - cardFee - commission;
+}
