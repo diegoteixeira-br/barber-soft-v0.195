@@ -20,7 +20,7 @@ interface AppointmentDetailsModalProps {
   appointment: Appointment | null;
   onEdit: () => void;
   onDelete: (reason?: string) => void;
-  onStatusChange: (status: AppointmentStatus, paymentMethod?: string) => void;
+  onStatusChange: (status: AppointmentStatus, paymentMethod?: string, courtesyReason?: string) => void;
   onNoShow?: () => void;
   isLoading?: boolean;
 }
@@ -51,8 +51,8 @@ export function AppointmentDetailsModal({
     setIsPaymentModalOpen(true);
   };
 
-  const handlePaymentConfirm = (paymentMethod: PaymentMethod) => {
-    onStatusChange("completed", paymentMethod);
+  const handlePaymentConfirm = (paymentMethod: PaymentMethod, courtesyReason?: string) => {
+    onStatusChange("completed", paymentMethod, courtesyReason);
     setIsPaymentModalOpen(false);
   };
 

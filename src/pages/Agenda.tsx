@@ -144,9 +144,9 @@ export default function Agenda() {
     setIsFormModalOpen(true);
   };
 
-  const handleStatusChange = async (status: AppointmentStatus, paymentMethod?: string) => {
+  const handleStatusChange = async (status: AppointmentStatus, paymentMethod?: string, courtesyReason?: string) => {
     if (selectedAppointment) {
-      await updateStatus.mutateAsync({ id: selectedAppointment.id, status, isNoShow: false, paymentMethod });
+      await updateStatus.mutateAsync({ id: selectedAppointment.id, status, isNoShow: false, paymentMethod, courtesyReason });
       setIsDetailsModalOpen(false);
     }
   };

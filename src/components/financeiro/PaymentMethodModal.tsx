@@ -7,6 +7,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Banknote, Smartphone, CreditCard, Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,7 @@ export type PaymentMethod = "cash" | "pix" | "debit_card" | "credit_card" | "cou
 interface PaymentMethodModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (paymentMethod: PaymentMethod) => void;
+  onConfirm: (paymentMethod: PaymentMethod, courtesyReason?: string) => void;
   totalPrice: number;
   isLoading?: boolean;
 }
@@ -36,6 +37,7 @@ export function PaymentMethodModal({
   isLoading,
 }: PaymentMethodModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [courtesyReason, setCourtesyReason] = useState("");
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -46,17 +48,21 @@ export function PaymentMethodModal({
 
   const handleConfirm = () => {
     if (selectedMethod) {
-      onConfirm(selectedMethod);
+      onConfirm(selectedMethod, selectedMethod === "courtesy" ? courtesyReason.trim() : undefined);
       setSelectedMethod(null);
+      setCourtesyReason("");
     }
   };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setSelectedMethod(null);
+      setCourtesyReason("");
     }
     onOpenChange(open);
   };
+
+  const isCourtesyValid = selectedMethod !== "courtesy" || courtesyReason.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -82,6 +88,25 @@ export function PaymentMethodModal({
               <p className="text-xs text-pink-500 mt-1">Serviço oferecido como cortesia</p>
             )}
           </div>
+
+          {/* Courtesy Reason Field */}
+          {selectedMethod === "courtesy" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Motivo da cortesia <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                placeholder="Ex: Cliente fidelizado, promoção especial, compensação por atraso..."
+                value={courtesyReason}
+                onChange={(e) => setCourtesyReason(e.target.value)}
+                className="min-h-[80px] resize-none"
+                maxLength={200}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {courtesyReason.length}/200
+              </p>
+            </div>
+          )}
 
           {/* Payment Methods Grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -119,7 +144,7 @@ export function PaymentMethodModal({
             <Button
               type="button"
               onClick={handleConfirm}
-              disabled={!selectedMethod || isLoading}
+              disabled={!selectedMethod || !isCourtesyValid || isLoading}
               className="flex-1"
             >
               {isLoading ? "Finalizando..." : "Confirmar"}

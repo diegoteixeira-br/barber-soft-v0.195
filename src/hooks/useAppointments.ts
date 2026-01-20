@@ -335,7 +335,7 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
   };
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, isNoShow = false, paymentMethod }: { id: string; status: AppointmentStatus; isNoShow?: boolean; paymentMethod?: string }) => {
+    mutationFn: async ({ id, status, isNoShow = false, paymentMethod, courtesyReason }: { id: string; status: AppointmentStatus; isNoShow?: boolean; paymentMethod?: string; courtesyReason?: string }) => {
       // Fetch full appointment data first for cancellation history
       if (status === "cancelled") {
         const { data: fullAppointment } = await supabase
@@ -359,9 +359,24 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
       if (status === "completed" && paymentMethod) {
         updateData.payment_method = paymentMethod;
         
-        // If courtesy, set total_price to 0
+        // If courtesy, set total_price to 0 and add reason to notes
         if (paymentMethod === "courtesy") {
           updateData.total_price = 0;
+          
+          // Append courtesy reason to notes
+          if (courtesyReason) {
+            // Get current appointment to check existing notes
+            const { data: currentApt } = await supabase
+              .from("appointments")
+              .select("notes")
+              .eq("id", id)
+              .single();
+            
+            const courtesyNote = `[Cortesia] ${courtesyReason}`;
+            updateData.notes = currentApt?.notes 
+              ? `${currentApt.notes}\n\n${courtesyNote}`
+              : courtesyNote;
+          }
         }
       }
 
