@@ -1292,10 +1292,40 @@ async function handleCheckClient(supabase: any, body: any, corsHeaders: any) {
 
   console.log(`Found ${dependents?.length || 0} dependents`);
 
+  // Buscar último agendamento completado do cliente
+  const { data: lastAppointment, error: lastAppError } = await supabase
+    .from('appointments')
+    .select(`
+      id,
+      start_time,
+      service_id,
+      barber_id,
+      services:service_id (name),
+      barbers:barber_id (name)
+    `)
+    .eq('unit_id', unit_id)
+    .eq('client_phone', clientPhone)
+    .eq('status', 'completed')
+    .order('start_time', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastAppError) {
+    console.error('Error fetching last appointment:', lastAppError);
+  }
+
+  const ultimoServico = lastAppointment?.services?.name || null;
+  const ultimoProfissional = lastAppointment?.barbers?.name || null;
+
+  console.log(`Último serviço: ${ultimoServico}, Último profissional: ${ultimoProfissional}`);
+
   return new Response(
     JSON.stringify({
       status: "encontrado",
-      cliente: {
+      cliente: client.name,
+      ultimo_servico: ultimoServico,
+      ultimo_profissional: ultimoProfissional,
+      cliente_completo: {
         id: client.id,
         name: client.name,
         phone: client.phone,
