@@ -6,6 +6,7 @@ export interface AdminCompany {
   id: string;
   name: string;
   owner_user_id: string;
+  owner_email?: string;
   created_at: string | null;
   updated_at: string | null;
   plan_status: string | null;
@@ -31,7 +32,23 @@ export function useAdminCompanies() {
         .order("created_at", { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      
+      // Fetch owner emails
+      let ownerEmails: Record<string, string> = {};
+      try {
+        const { data: emailData } = await supabase.functions.invoke("get-company-owners");
+        if (emailData?.ownerEmails) {
+          ownerEmails = emailData.ownerEmails;
+        }
+      } catch (e) {
+        console.error("Failed to fetch owner emails:", e);
+      }
+      
+      // Map emails to companies
+      return (data || []).map(company => ({
+        ...company,
+        owner_email: ownerEmails[company.owner_user_id] || undefined
+      }));
     }
   });
 

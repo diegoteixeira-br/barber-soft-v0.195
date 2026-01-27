@@ -42,7 +42,8 @@ export function CompaniesTable() {
   const [selectedCompany, setSelectedCompany] = useState<AdminCompany | null>(null);
 
   const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(search.toLowerCase())
+    company.name.toLowerCase().includes(search.toLowerCase()) ||
+    (company.owner_email && company.owner_email.toLowerCase().includes(search.toLowerCase()))
   );
 
   const getTrialDaysLeft = (trialEndsAt: string | null) => {
@@ -98,6 +99,7 @@ export function CompaniesTable() {
                       </div>
                       <div>
                         <p className="font-medium text-white">{company.name}</p>
+                        <p className="text-xs text-slate-400">{company.owner_email || "Email não disponível"}</p>
                         {company.is_blocked && (
                           <span className="text-xs text-red-400">Bloqueado</span>
                         )}
