@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminCompany } from "@/hooks/useAdminCompanies";
 import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Handshake } from "lucide-react";
 
 interface CompanyDetailsModalProps {
   company: AdminCompany | null;
@@ -22,11 +23,20 @@ export function CompanyDetailsModal({ company, open, onOpenChange }: CompanyDeta
     ? differenceInDays(new Date(company.trial_ends_at), new Date())
     : null;
 
+  const partnerDays = company.partner_ends_at
+    ? differenceInDays(new Date(company.partner_ends_at), new Date())
+    : null;
+
+  const isPartner = company.is_partner && company.plan_status === 'partner';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">{company.name}</DialogTitle>
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            {company.name}
+            {isPartner && <Handshake className="h-5 w-5 text-purple-400" />}
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6 mt-4">
@@ -38,6 +48,8 @@ export function CompanyDetailsModal({ company, open, onOpenChange }: CompanyDeta
                   ? "bg-green-500/20 text-green-400 border-green-500/30"
                   : company.plan_status === 'trial'
                   ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                  : company.plan_status === 'partner'
+                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
                   : "bg-red-500/20 text-red-400 border-red-500/30"
               }>
                 {company.plan_status || 'trial'}
@@ -99,6 +111,60 @@ export function CompanyDetailsModal({ company, open, onOpenChange }: CompanyDeta
               </span>
             </div>
           </div>
+
+          {/* Partnership Section */}
+          {(company.is_partner || company.partner_started_at) && (
+            <div className="space-y-3 pt-4 border-t border-slate-700">
+              <p className="text-sm font-medium text-purple-400 flex items-center gap-2">
+                <Handshake className="h-4 w-4" />
+                Parceria
+              </p>
+              <div className="flex justify-between py-2 border-b border-slate-700">
+                <span className="text-slate-400">Status de Parceiro</span>
+                <span className={company.is_partner ? "text-purple-400" : "text-slate-400"}>
+                  {company.is_partner ? "Ativo" : "Inativo"}
+                </span>
+              </div>
+              {company.partner_started_at && (
+                <div className="flex justify-between py-2 border-b border-slate-700">
+                  <span className="text-slate-400">Início da Parceria</span>
+                  <span className="text-white">
+                    {format(new Date(company.partner_started_at), "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                </div>
+              )}
+              {company.partner_ends_at && (
+                <div className="flex justify-between py-2 border-b border-slate-700">
+                  <span className="text-slate-400">Término da Parceria</span>
+                  <span className="text-white">
+                    {format(new Date(company.partner_ends_at), "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                </div>
+              )}
+              {isPartner && partnerDays !== null && (
+                <div className="flex justify-between py-2 border-b border-slate-700">
+                  <span className="text-slate-400">Dias Restantes</span>
+                  <span className={partnerDays <= 30 ? "text-orange-400" : "text-purple-400"}>
+                    {partnerDays} dias
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between py-2 border-b border-slate-700">
+                <span className="text-slate-400">Renovações</span>
+                <span className="text-white">
+                  {company.partner_renewed_count || 0}
+                </span>
+              </div>
+              {company.partner_notes && (
+                <div className="py-2">
+                  <span className="text-slate-400 block mb-1">Notas da Parceria</span>
+                  <p className="text-white text-sm bg-slate-700/50 p-2 rounded">
+                    {company.partner_notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {(company.stripe_customer_id || company.stripe_subscription_id) && (
             <div className="space-y-3 pt-4 border-t border-slate-700">

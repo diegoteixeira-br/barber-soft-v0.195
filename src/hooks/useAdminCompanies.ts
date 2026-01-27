@@ -19,6 +19,26 @@ export interface AdminCompany {
   is_blocked: boolean | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  // Partner fields
+  is_partner: boolean | null;
+  partner_started_at: string | null;
+  partner_ends_at: string | null;
+  partner_notes: string | null;
+  partner_renewed_count: number | null;
+}
+
+interface ActivatePartnershipParams {
+  companyId: string;
+  planType: string;
+  startsAt: string;
+  endsAt: string;
+  notes: string;
+}
+
+interface RenewPartnershipParams {
+  companyId: string;
+  newEndDate: string;
+  notes: string;
 }
 
 export function useAdminCompanies() {
@@ -162,6 +182,91 @@ export function useAdminCompanies() {
     }
   });
 
+  // Activate Partnership
+  const activatePartnershipMutation = useMutation({
+    mutationFn: async ({ companyId, planType, startsAt, endsAt, notes }: ActivatePartnershipParams) => {
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          is_partner: true,
+          plan_status: 'partner',
+          plan_type: planType,
+          partner_started_at: startsAt,
+          partner_ends_at: endsAt,
+          partner_notes: notes,
+          partner_renewed_count: 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", companyId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Parceria ativada com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
+    },
+    onError: (error) => {
+      toast.error("Erro ao ativar parceria: " + error.message);
+    }
+  });
+
+  // Renew Partnership
+  const renewPartnershipMutation = useMutation({
+    mutationFn: async ({ companyId, newEndDate, notes }: RenewPartnershipParams) => {
+      const company = companiesQuery.data?.find(c => c.id === companyId);
+      
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          partner_ends_at: newEndDate,
+          partner_notes: notes,
+          partner_renewed_count: (company?.partner_renewed_count || 0) + 1,
+          plan_status: 'partner',
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", companyId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Parceria renovada com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
+    },
+    onError: (error) => {
+      toast.error("Erro ao renovar parceria: " + error.message);
+    }
+  });
+
+  // End Partnership
+  const endPartnershipMutation = useMutation({
+    mutationFn: async ({ companyId, convertToTrial = true }: { companyId: string; convertToTrial?: boolean }) => {
+      const updates: Record<string, unknown> = {
+        is_partner: false,
+        plan_status: convertToTrial ? 'trial' : 'cancelled',
+        updated_at: new Date().toISOString()
+      };
+      
+      if (convertToTrial) {
+        // Set trial to end in 14 days
+        updates.trial_ends_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      }
+      
+      const { error } = await supabase
+        .from("companies")
+        .update(updates)
+        .eq("id", companyId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Parceria encerrada");
+      queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
+    },
+    onError: (error) => {
+      toast.error("Erro ao encerrar parceria: " + error.message);
+    }
+  });
+
   return {
     companies: companiesQuery.data || [],
     isLoading: companiesQuery.isLoading,
@@ -170,6 +275,11 @@ export function useAdminCompanies() {
     extendTrial: extendTrialMutation.mutate,
     updatePlan: updatePlanMutation.mutate,
     deleteCompany: deleteCompanyMutation.mutate,
-    isDeletingCompany: deleteCompanyMutation.isPending
+    isDeletingCompany: deleteCompanyMutation.isPending,
+    // Partnership functions
+    activatePartnership: activatePartnershipMutation.mutate,
+    renewPartnership: renewPartnershipMutation.mutate,
+    endPartnership: endPartnershipMutation.mutate,
+    isPartnershipLoading: activatePartnershipMutation.isPending || renewPartnershipMutation.isPending
   };
 }

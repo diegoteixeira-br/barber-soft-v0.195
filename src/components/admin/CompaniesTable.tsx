@@ -28,29 +28,49 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AdminCompany, useAdminCompanies } from "@/hooks/useAdminCompanies";
-import { MoreHorizontal, Search, Ban, CheckCircle, Clock, Eye, Trash2, UserX } from "lucide-react";
+import { MoreHorizontal, Search, Ban, CheckCircle, Clock, Eye, Trash2, UserX, Handshake, RefreshCw, X } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CompanyDetailsModal } from "./CompanyDetailsModal";
+import { PartnershipModal } from "./PartnershipModal";
 
 const statusColors: Record<string, string> = {
   trial: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   active: "bg-green-500/20 text-green-400 border-green-500/30",
+  partner: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  expired_partner: "bg-orange-500/20 text-orange-400 border-orange-500/30",
   cancelled: "bg-slate-500/20 text-slate-400 border-slate-500/30",
   overdue: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
 const planColors: Record<string, string> = {
+  inicial: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  profissional: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+  franquias: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   professional: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   elite: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   empire: "bg-amber-500/20 text-amber-400 border-amber-500/30",
 };
 
 export function CompaniesTable() {
-  const { companies, isLoading, blockCompany, extendTrial, updatePlan, deleteCompany, isDeletingCompany } = useAdminCompanies();
+  const { 
+    companies, 
+    isLoading, 
+    blockCompany, 
+    extendTrial, 
+    updatePlan, 
+    deleteCompany, 
+    isDeletingCompany,
+    activatePartnership,
+    renewPartnership,
+    endPartnership,
+    isPartnershipLoading 
+  } = useAdminCompanies();
+  
   const [search, setSearch] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<AdminCompany | null>(null);
   const [companyToDelete, setCompanyToDelete] = useState<AdminCompany | null>(null);
+  const [partnershipCompany, setPartnershipCompany] = useState<AdminCompany | null>(null);
 
   const filteredCompanies = companies.filter(company => {
     const displayName = company.business_name || company.name;
@@ -61,6 +81,12 @@ export function CompaniesTable() {
   const getTrialDaysLeft = (trialEndsAt: string | null) => {
     if (!trialEndsAt) return null;
     const days = differenceInDays(new Date(trialEndsAt), new Date());
+    return days >= 0 ? days : 0;
+  };
+
+  const getPartnerDaysLeft = (partnerEndsAt: string | null) => {
+    if (!partnerEndsAt) return null;
+    const days = differenceInDays(new Date(partnerEndsAt), new Date());
     return days >= 0 ? days : 0;
   };
 
@@ -101,6 +127,8 @@ export function CompaniesTable() {
           <TableBody>
             {filteredCompanies.map((company) => {
               const trialDays = getTrialDaysLeft(company.trial_ends_at);
+              const partnerDays = getPartnerDaysLeft(company.partner_ends_at);
+              const isPartner = company.is_partner && company.plan_status === 'partner';
               
               return (
                 <TableRow key={company.id} className="border-slate-700 hover:bg-slate-800/50">
@@ -110,7 +138,12 @@ export function CompaniesTable() {
                         {(company.business_name || company.name).charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium text-white">{company.business_name || company.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-white">{company.business_name || company.name}</p>
+                          {isPartner && (
+                            <Handshake className="h-4 w-4 text-purple-400" />
+                          )}
+                        </div>
                         <p className="text-xs text-slate-400">{company.owner_email || "Email não disponível"}</p>
                         {company.is_blocked && (
                           <span className="text-xs text-red-400">Bloqueado</span>
@@ -131,6 +164,11 @@ export function CompaniesTable() {
                       {company.plan_status === 'trial' && trialDays !== null && (
                         <span className="text-xs text-slate-400">
                           {trialDays} dias restantes
+                        </span>
+                      )}
+                      {isPartner && partnerDays !== null && (
+                        <span className="text-xs text-purple-400">
+                          {partnerDays} dias restantes
                         </span>
                       )}
                     </div>
@@ -163,7 +201,39 @@ export function CompaniesTable() {
                           <Eye className="mr-2 h-4 w-4" />
                           Ver Detalhes
                         </DropdownMenuItem>
+                        
                         <DropdownMenuSeparator className="bg-slate-700" />
+                        
+                        {/* Partnership Actions */}
+                        {!isPartner ? (
+                          <DropdownMenuItem 
+                            className="text-purple-400 focus:text-purple-300 focus:bg-slate-700"
+                            onClick={() => setPartnershipCompany(company)}
+                          >
+                            <Handshake className="mr-2 h-4 w-4" />
+                            Ativar Parceria
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem 
+                              className="text-purple-400 focus:text-purple-300 focus:bg-slate-700"
+                              onClick={() => setPartnershipCompany(company)}
+                            >
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Renovar Parceria
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-orange-400 focus:text-orange-300 focus:bg-slate-700"
+                              onClick={() => endPartnership({ companyId: company.id, convertToTrial: true })}
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              Encerrar Parceria
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        
+                        <DropdownMenuSeparator className="bg-slate-700" />
+                        
                         {company.is_blocked ? (
                           <DropdownMenuItem 
                             className="text-green-400 focus:text-green-300 focus:bg-slate-700"
@@ -226,6 +296,21 @@ export function CompaniesTable() {
         company={selectedCompany} 
         open={!!selectedCompany} 
         onOpenChange={(open) => !open && setSelectedCompany(null)} 
+      />
+
+      <PartnershipModal
+        company={partnershipCompany}
+        open={!!partnershipCompany}
+        onOpenChange={(open) => !open && setPartnershipCompany(null)}
+        onActivate={(data) => {
+          activatePartnership(data);
+          setPartnershipCompany(null);
+        }}
+        onRenew={(data) => {
+          renewPartnership(data);
+          setPartnershipCompany(null);
+        }}
+        isLoading={isPartnershipLoading}
       />
 
       <AlertDialog open={!!companyToDelete} onOpenChange={(open) => !open && setCompanyToDelete(null)}>

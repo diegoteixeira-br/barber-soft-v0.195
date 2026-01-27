@@ -42,10 +42,10 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Get company info
+    // Get company info including partner fields
     const { data: company, error: companyError } = await supabaseClient
       .from("companies")
-      .select("id, stripe_customer_id, plan_status, plan_type, trial_ends_at")
+      .select("id, stripe_customer_id, plan_status, plan_type, trial_ends_at, is_partner, partner_ends_at")
       .eq("owner_user_id", user.id)
       .single();
 
@@ -62,7 +62,64 @@ serve(async (req) => {
       });
     }
 
-    logStep("Company found", { companyId: company.id, planStatus: company.plan_status });
+    logStep("Company found", { companyId: company.id, planStatus: company.plan_status, isPartner: company.is_partner });
+
+    // Check if this is a partner with valid partnership
+    if (company.is_partner && company.partner_ends_at) {
+      const partnerEnds = new Date(company.partner_ends_at);
+      const now = new Date();
+      
+      if (partnerEnds > now) {
+        // Partnership is still valid
+        const daysRemaining = Math.ceil((partnerEnds.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        logStep("Valid partnership found", { endsAt: company.partner_ends_at, daysRemaining });
+        
+        // Ensure plan_status is 'partner' if partnership is valid
+        if (company.plan_status !== 'partner') {
+          await supabaseClient
+            .from("companies")
+            .update({ plan_status: 'partner', updated_at: new Date().toISOString() })
+            .eq("id", company.id);
+          logStep("Updated plan_status to partner");
+        }
+        
+        return new Response(JSON.stringify({
+          subscribed: true,
+          plan_status: 'partner',
+          plan_type: company.plan_type,
+          partner_ends_at: company.partner_ends_at,
+          days_remaining: daysRemaining,
+          is_partner: true
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      } else {
+        // Partnership has expired
+        logStep("Partnership expired", { expiredAt: company.partner_ends_at });
+        
+        // Update status to expired_partner
+        await supabaseClient
+          .from("companies")
+          .update({ 
+            plan_status: 'expired_partner',
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", company.id);
+        
+        return new Response(JSON.stringify({
+          subscribed: false,
+          plan_status: 'expired_partner',
+          plan_type: company.plan_type,
+          partner_expired: true,
+          partner_ended_at: company.partner_ends_at,
+          is_partner: true
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
 
     // If no Stripe customer, return current DB status
     if (!company.stripe_customer_id) {

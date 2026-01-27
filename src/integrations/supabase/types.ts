@@ -703,10 +703,15 @@ export type Database = {
           evolution_instance_name: string | null
           id: string
           is_blocked: boolean | null
+          is_partner: boolean | null
           last_login_at: string | null
           monthly_price: number | null
           name: string
           owner_user_id: string
+          partner_ends_at: string | null
+          partner_notes: string | null
+          partner_renewed_count: number | null
+          partner_started_at: string | null
           plan_status: string | null
           plan_type: string | null
           signup_source: string | null
@@ -721,10 +726,15 @@ export type Database = {
           evolution_instance_name?: string | null
           id?: string
           is_blocked?: boolean | null
+          is_partner?: boolean | null
           last_login_at?: string | null
           monthly_price?: number | null
           name: string
           owner_user_id: string
+          partner_ends_at?: string | null
+          partner_notes?: string | null
+          partner_renewed_count?: number | null
+          partner_started_at?: string | null
           plan_status?: string | null
           plan_type?: string | null
           signup_source?: string | null
@@ -739,10 +749,15 @@ export type Database = {
           evolution_instance_name?: string | null
           id?: string
           is_blocked?: boolean | null
+          is_partner?: boolean | null
           last_login_at?: string | null
           monthly_price?: number | null
           name?: string
           owner_user_id?: string
+          partner_ends_at?: string | null
+          partner_notes?: string | null
+          partner_renewed_count?: number | null
+          partner_started_at?: string | null
           plan_status?: string | null
           plan_type?: string | null
           signup_source?: string | null
