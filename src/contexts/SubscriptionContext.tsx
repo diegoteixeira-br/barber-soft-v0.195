@@ -6,6 +6,7 @@ interface SubscriptionContextType {
   isTrialing: boolean;
   daysRemaining: number | null;
   planStatus: string | null;
+  planType: string | null;
   isActive: boolean;
   isPartner: boolean;
   isBlocked: boolean;
@@ -21,6 +22,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [isTrialing, setIsTrialing] = useState(false);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [planStatus, setPlanStatus] = useState<string | null>(null);
+  const [planType, setPlanType] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [isPartner, setIsPartner] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -56,6 +58,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (!company) return;
 
       setPlanStatus(company.plan_status);
+      setPlanType(company.plan_type);
       setIsBlocked(company.is_blocked || false);
       setIsPartner(company.is_partner || false);
 
@@ -117,6 +120,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         isTrialing,
         daysRemaining,
         planStatus,
+        planType,
         isActive,
         isPartner,
         isBlocked,

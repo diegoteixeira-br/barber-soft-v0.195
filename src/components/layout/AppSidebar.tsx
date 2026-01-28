@@ -3,6 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { useSubscriptionContext } from "@/contexts/SubscriptionContext";
 import {
   LayoutDashboard,
   Calendar,
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUnits } from "@/hooks/useUnits";
@@ -72,9 +74,22 @@ export function AppSidebar({ onOpenChat, isChatOpen }: AppSidebarProps) {
   const { currentUnitId, setCurrentUnitId } = useCurrentUnit();
   const { settings: businessSettings } = useBusinessSettings();
   const { isSuperAdmin } = useSuperAdmin();
+  const { planType, isTrialing, isSuperAdmin: isSuperAdminSubscription } = useSubscriptionContext();
   const [user, setUser] = useState<User | null>(null);
 
   const selectedUnit = units.find((u) => u.id === currentUnitId) || units[0];
+
+  const getPlanLabel = () => {
+    if (isSuperAdminSubscription) return "Vitalício";
+    if (isTrialing) return "Trial";
+    if (!planType) return null;
+    const labels: Record<string, string> = {
+      inicial: "Inicial",
+      profissional: "Profissional",
+      franquias: "Franquias",
+    };
+    return labels[planType] || planType;
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -241,7 +256,17 @@ export function AppSidebar({ onOpenChat, isChatOpen }: AppSidebarProps) {
           </Avatar>
           {!collapsed && (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <span className="truncate text-sm font-medium">{getDisplayName()}</span>
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium">{getDisplayName()}</span>
+                {getPlanLabel() && (
+                  <Badge 
+                    variant="outline" 
+                    className="shrink-0 text-[10px] px-1.5 py-0 h-4 border-primary/30 text-primary/80"
+                  >
+                    {getPlanLabel()}
+                  </Badge>
+                )}
+              </div>
               <span className="truncate text-xs text-muted-foreground">{user?.email || ""}</span>
             </div>
           )}
