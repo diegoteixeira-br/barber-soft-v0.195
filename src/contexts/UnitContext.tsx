@@ -34,9 +34,11 @@ export function UnitProvider({ children }: { children: ReactNode }) {
       if (!user) return;
 
       // Create company ONLY if query finished, no error, and company is truly null
+      // Use business_name from user metadata if available
       if (company === null && !companyCreatingRef.current && !createCompany.isPending) {
         companyCreatingRef.current = true;
-        createCompany.mutate({ name: "Minha Empresa" }, {
+        const businessName = user.user_metadata?.business_name || user.user_metadata?.full_name || "Minha Empresa";
+        createCompany.mutate({ name: businessName }, {
           onSettled: () => {
             companyCreatingRef.current = false;
           }
@@ -45,9 +47,11 @@ export function UnitProvider({ children }: { children: ReactNode }) {
       }
 
       // Create default unit if company exists but no units (only once)
+      // Use company name for unit name
       if (company && !unitsLoading && units.length === 0 && !unitCreatingRef.current && !createUnit.isPending) {
         unitCreatingRef.current = true;
-        createUnit.mutate({ name: "Barbearia Principal" }, {
+        const unitName = company.name || "Barbearia Principal";
+        createUnit.mutate({ name: unitName }, {
           onSettled: () => {
             unitCreatingRef.current = false;
           }

@@ -43,15 +43,22 @@ export function useCompany() {
   });
 
   const createCompany = useMutation({
-    mutationFn: async (companyData: { name: string }) => {
+    mutationFn: async (companyData: { name: string; plan_type?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
+
+      // Calculate trial end date (7 days from now)
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
 
       const { data, error } = await supabase
         .from("companies")
         .insert({ 
           name: companyData.name, 
-          owner_user_id: user.id 
+          owner_user_id: user.id,
+          plan_status: "trial",
+          plan_type: companyData.plan_type || "profissional",
+          trial_ends_at: trialEndsAt.toISOString()
         })
         .select()
         .single();

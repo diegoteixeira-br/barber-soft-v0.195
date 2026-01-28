@@ -66,13 +66,27 @@ serve(async (req) => {
 
         logStep("Checkout completed", { companyId, plan, subscriptionId });
 
-        if (companyId) {
+        if (companyId && subscriptionId) {
+          // Get subscription details to check for trial
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const isTrialing = subscription.status === "trialing";
+          const trialEnd = subscription.trial_end 
+            ? new Date(subscription.trial_end * 1000).toISOString() 
+            : null;
+
+          logStep("Subscription details", { 
+            status: subscription.status, 
+            isTrialing, 
+            trialEnd 
+          });
+
           const { error } = await supabaseClient
             .from("companies")
             .update({
-              plan_status: "active",
+              plan_status: isTrialing ? "trial" : "active",
               plan_type: plan || "profissional",
               stripe_subscription_id: subscriptionId,
+              trial_ends_at: trialEnd,
               updated_at: new Date().toISOString()
             })
             .eq("id", companyId);
@@ -80,8 +94,46 @@ serve(async (req) => {
           if (error) {
             logStep("Error updating company", { error: error.message });
           } else {
-            logStep("Company updated to active");
+            logStep("Company updated", { status: isTrialing ? "trial" : "active" });
           }
+        }
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const subscriptionId = subscription.id;
+        const status = subscription.status;
+        const trialEnd = subscription.trial_end 
+          ? new Date(subscription.trial_end * 1000).toISOString() 
+          : null;
+
+        logStep("Subscription updated", { subscriptionId, status, trialEnd });
+
+        let planStatus = "active";
+        if (status === "trialing") planStatus = "trial";
+        if (status === "past_due") planStatus = "overdue";
+        if (status === "canceled" || status === "unpaid") planStatus = "cancelled";
+
+        const updateData: Record<string, any> = {
+          plan_status: planStatus,
+          updated_at: new Date().toISOString()
+        };
+
+        // Update trial_ends_at if subscription is trialing
+        if (status === "trialing" && trialEnd) {
+          updateData.trial_ends_at = trialEnd;
+        }
+
+        const { error } = await supabaseClient
+          .from("companies")
+          .update(updateData)
+          .eq("stripe_subscription_id", subscriptionId);
+
+        if (error) {
+          logStep("Error updating company", { error: error.message });
+        } else {
+          logStep("Company status updated", { planStatus });
         }
         break;
       }
@@ -93,6 +145,7 @@ serve(async (req) => {
         logStep("Invoice paid", { subscriptionId });
 
         if (subscriptionId) {
+          // When invoice is paid, subscription is active (trial ended successfully)
           const { error } = await supabaseClient
             .from("companies")
             .update({
@@ -104,7 +157,7 @@ serve(async (req) => {
           if (error) {
             logStep("Error updating company", { error: error.message });
           } else {
-            logStep("Company status confirmed active");
+            logStep("Company status confirmed active after payment");
           }
         }
         break;
@@ -157,30 +210,15 @@ serve(async (req) => {
         break;
       }
 
-      case "customer.subscription.updated": {
+      case "customer.subscription.trial_will_end": {
+        // Trial is ending in 3 days - could trigger notification here
         const subscription = event.data.object as Stripe.Subscription;
-        const subscriptionId = subscription.id;
-        const status = subscription.status;
-
-        logStep("Subscription updated", { subscriptionId, status });
-
-        let planStatus = "active";
-        if (status === "past_due") planStatus = "overdue";
-        if (status === "canceled" || status === "unpaid") planStatus = "cancelled";
-
-        const { error } = await supabaseClient
-          .from("companies")
-          .update({
-            plan_status: planStatus,
-            updated_at: new Date().toISOString()
-          })
-          .eq("stripe_subscription_id", subscriptionId);
-
-        if (error) {
-          logStep("Error updating company", { error: error.message });
-        } else {
-          logStep("Company status updated", { planStatus });
-        }
+        logStep("Trial ending soon", { 
+          subscriptionId: subscription.id,
+          trialEnd: subscription.trial_end 
+            ? new Date(subscription.trial_end * 1000).toISOString() 
+            : null
+        });
         break;
       }
 
