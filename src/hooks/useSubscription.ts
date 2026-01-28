@@ -40,9 +40,13 @@ export function useSubscription() {
       }
 
       if (data) {
-        // Calculate days remaining for trial or partner
+        // Calculate days remaining from API response or trial/partner dates
         let daysRemaining: number | null = null;
-        if (data.trial_ends_at) {
+        
+        // First use days_remaining from API if available
+        if (data.days_remaining !== undefined && data.days_remaining !== null) {
+          daysRemaining = data.days_remaining;
+        } else if (data.trial_ends_at) {
           const trialEnd = new Date(data.trial_ends_at);
           const now = new Date();
           daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
@@ -50,8 +54,6 @@ export function useSubscription() {
           const partnerEnd = new Date(data.partner_ends_at);
           const now = new Date();
           daysRemaining = Math.max(0, Math.ceil((partnerEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-        } else if (data.days_remaining !== undefined) {
-          daysRemaining = data.days_remaining;
         }
 
         setStatus({

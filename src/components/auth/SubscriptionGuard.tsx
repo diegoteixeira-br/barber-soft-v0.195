@@ -66,30 +66,41 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
         // Check trial status - trial expired means user should be blocked
         // Note: Credit card is captured at signup, so Stripe will auto-charge after trial
         // If payment fails, webhook updates status to "overdue"
-        if (company.plan_status === "trial" && company.trial_ends_at) {
-          const trialEnd = new Date(company.trial_ends_at);
-          const now = new Date();
-          const days = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          
-          setDaysRemaining(days);
-          
-          if (days <= 0) {
-            setIsTrialExpired(true);
+        if (company.plan_status === "trial") {
+          if (company.trial_ends_at) {
+            const trialEnd = new Date(company.trial_ends_at);
+            const now = new Date();
+            const days = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            
+            setDaysRemaining(days);
+            
+            if (days <= 0) {
+              // Trial has expired and no payment was made
+              setIsTrialExpired(true);
+            }
+          } else {
+            // Trial status but no end date - calculate from created_at or use default
+            // This handles edge cases where trial_ends_at wasn't set
+            setDaysRemaining(7); // Default to showing full trial
           }
-          // No banner needed - Stripe auto-charges when trial ends
         } else if (company.plan_status === "partner" && company.partner_ends_at) {
           const partnerEnd = new Date(company.partner_ends_at);
           const now = new Date();
           const days = Math.ceil((partnerEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           
           setDaysRemaining(days);
-          // Partners don't have auto-billing, so no banner needed either
-        } else if (company.plan_status === "cancelled" || company.plan_status === "overdue") {
+          
+          if (days <= 0) {
+            // Partner period expired
+            setIsTrialExpired(true);
+          }
+        } else if (company.plan_status === "cancelled" || company.plan_status === "overdue" || company.plan_status === "expired_partner") {
           // Cancelled = user cancelled subscription
           // Overdue = payment failed after trial ended
+          // Expired_partner = partnership period ended
           setIsTrialExpired(true);
         }
-        // Active status = full access
+        // Active status = full access, nothing to do
       } catch (error) {
         console.error("Error checking subscription:", error);
       } finally {

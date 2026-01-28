@@ -169,6 +169,7 @@ export default function Auth() {
           emailRedirectTo: redirectUrl,
           data: {
             full_name: signupName,
+            business_name: signupName, // Store the barbershop name
           },
         },
       });
@@ -187,30 +188,48 @@ export default function Auth() {
       }
 
       if (data.user) {
+        // Create company immediately with the barbershop name
+        const trialEndsAt = new Date();
+        trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+        
+        const { error: companyError } = await supabase
+          .from("companies")
+          .insert({
+            name: signupName,
+            owner_user_id: data.user.id,
+            plan_status: "trial",
+            plan_type: selectedPlan,
+            trial_ends_at: trialEndsAt.toISOString(),
+          });
+
+        if (companyError) {
+          console.error("Error creating company:", companyError);
+          // Don't block the flow if company creation fails
+          // UnitContext will create it as fallback
+        }
+
         toast({
           title: "Conta criada!",
-          description: planFromUrl && billingFromUrl 
-            ? "Redirecionando para o checkout..." 
-            : "Escolha seu plano para continuar",
+          description: "Redirecionando para o checkout...",
         });
 
-        // Always proceed to checkout with the selected plan
+        // Proceed to checkout with the selected plan
         try {
           const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
             "create-checkout-session",
-            { body: { plan: selectedPlan, billing: selectedBilling } }
+            { body: { plan: selectedPlan, billing: selectedBilling, businessName: signupName } }
           );
 
-            if (checkoutError) {
-              console.error("Checkout error:", checkoutError);
-              toast({
-                title: "Erro no checkout",
-                description: "Não foi possível iniciar o checkout. Redirecionando para escolha de plano.",
-                variant: "destructive",
-              });
-              navigate("/escolher-plano");
-              return;
-            }
+          if (checkoutError) {
+            console.error("Checkout error:", checkoutError);
+            toast({
+              title: "Erro no checkout",
+              description: "Não foi possível iniciar o checkout. Redirecionando para escolha de plano.",
+              variant: "destructive",
+            });
+            navigate("/escolher-plano");
+            return;
+          }
 
           if (checkoutData?.url) {
             window.location.href = checkoutData.url;

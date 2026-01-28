@@ -121,14 +121,47 @@ serve(async (req) => {
       }
     }
 
+    // Check trial status without Stripe
+    if (company.plan_status === "trial" && company.trial_ends_at) {
+      const trialEnds = new Date(company.trial_ends_at);
+      const now = new Date();
+      const daysRemaining = Math.ceil((trialEnds.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // If trial expired and no active subscription, mark as expired
+      if (daysRemaining <= 0 && !company.stripe_subscription_id) {
+        logStep("Trial expired with no subscription", { trialEnds: company.trial_ends_at });
+        
+        return new Response(JSON.stringify({
+          subscribed: false,
+          plan_status: "trial",
+          plan_type: company.plan_type,
+          trial_ends_at: company.trial_ends_at,
+          days_remaining: 0
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
+
     // If no Stripe customer, return current DB status
     if (!company.stripe_customer_id) {
       logStep("No Stripe customer, returning DB status");
+      
+      // Calculate days remaining for trial
+      let daysRemaining = null;
+      if (company.plan_status === "trial" && company.trial_ends_at) {
+        const trialEnds = new Date(company.trial_ends_at);
+        const now = new Date();
+        daysRemaining = Math.max(0, Math.ceil((trialEnds.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+      
       return new Response(JSON.stringify({
         subscribed: company.plan_status === "active",
         plan_status: company.plan_status,
         plan_type: company.plan_type,
-        trial_ends_at: company.trial_ends_at
+        trial_ends_at: company.trial_ends_at,
+        days_remaining: daysRemaining
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -137,25 +170,35 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    // Check active subscriptions - don't expand nested objects to avoid Stripe limits
+    // Check active subscriptions
     const subscriptions = await stripe.subscriptions.list({
       customer: company.stripe_customer_id,
-      status: "active",
+      status: "all", // Get all to check for trialing too
       limit: 1,
     });
 
-    const hasActiveSub = subscriptions.data.length > 0;
+    const subscription = subscriptions.data[0];
+    const hasActiveSub = subscription && (subscription.status === "active" || subscription.status === "trialing");
+    
     let subscriptionEnd = null;
     let currentPlan = company.plan_type;
     let priceAmount: number | null = null;
     let priceInterval: string | null = null;
     let productName: string | null = null;
     let cancelAtPeriodEnd = false;
+    let trialEndsAt = company.trial_ends_at;
+    let daysRemaining: number | null = null;
 
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
+    if (subscription) {
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       cancelAtPeriodEnd = subscription.cancel_at_period_end;
+      
+      // Update trial_ends_at from Stripe if trialing
+      if (subscription.status === "trialing" && subscription.trial_end) {
+        trialEndsAt = new Date(subscription.trial_end * 1000).toISOString();
+        const now = new Date();
+        daysRemaining = Math.max(0, Math.ceil((subscription.trial_end * 1000 - now.getTime()) / (1000 * 60 * 60 * 24)));
+      }
       
       // Get price info from the subscription item
       const priceId = subscription.items.data[0]?.price?.id;
@@ -179,69 +222,72 @@ serve(async (req) => {
         currentPlan = subscription.metadata.plan;
       }
       
-      logStep("Active subscription found", { 
-        subscriptionId: subscription.id, 
+      logStep("Subscription found", { 
+        subscriptionId: subscription.id,
+        status: subscription.status,
         endDate: subscriptionEnd,
         plan: currentPlan,
         price: priceAmount,
         interval: priceInterval,
         productName,
-        cancelAtPeriodEnd
+        cancelAtPeriodEnd,
+        trialEndsAt,
+        daysRemaining
       });
 
+      // Determine correct plan status based on Stripe
+      let correctPlanStatus = company.plan_status;
+      if (subscription.status === "trialing") {
+        correctPlanStatus = "trial";
+      } else if (subscription.status === "active") {
+        correctPlanStatus = "active";
+      } else if (subscription.status === "past_due") {
+        correctPlanStatus = "overdue";
+      } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
+        correctPlanStatus = "cancelled";
+      }
+
       // Update company if needed
-      if (company.plan_status !== "active" || company.plan_type !== currentPlan) {
+      const needsUpdate = company.plan_status !== correctPlanStatus || 
+                          company.plan_type !== currentPlan ||
+                          company.trial_ends_at !== trialEndsAt;
+      
+      if (needsUpdate) {
         await supabaseClient
           .from("companies")
           .update({
-            plan_status: "active",
+            plan_status: correctPlanStatus,
             plan_type: currentPlan,
+            trial_ends_at: trialEndsAt,
             updated_at: new Date().toISOString()
           })
           .eq("id", company.id);
-        logStep("Company status synced");
+        logStep("Company status synced", { correctPlanStatus });
       }
     } else {
-      logStep("No active subscription found");
+      logStep("No subscription found");
       
-      // Check for cancelled subscriptions that are still active until period end
-      const cancelledSubs = await stripe.subscriptions.list({
-        customer: company.stripe_customer_id,
-        limit: 1,
-      });
-      
-      if (cancelledSubs.data.length > 0) {
-        const sub = cancelledSubs.data[0];
-        if (sub.cancel_at_period_end && sub.status === "active") {
-          subscriptionEnd = new Date(sub.current_period_end * 1000).toISOString();
-          cancelAtPeriodEnd = true;
-          
-          // Fetch price details separately
-          const priceId = sub.items.data[0]?.price?.id;
-          if (priceId) {
-            const price = await stripe.prices.retrieve(priceId, {
-              expand: ["product"]
-            });
-            
-            priceAmount = price.unit_amount ? price.unit_amount / 100 : null;
-            priceInterval = price.recurring?.interval || null;
-            
-            if (price.product && typeof price.product === 'object' && 'name' in price.product) {
-              productName = price.product.name as string;
-            }
-          }
-          
-          logStep("Subscription cancelling at period end", { subscriptionEnd });
-        }
+      // If there was a subscription but now there's none, mark as cancelled
+      if (company.stripe_subscription_id && company.plan_status === "active") {
+        await supabaseClient
+          .from("companies")
+          .update({
+            plan_status: "cancelled",
+            stripe_subscription_id: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", company.id);
+        logStep("Marked company as cancelled (no subscription found)");
       }
     }
 
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
-      plan_status: hasActiveSub ? "active" : company.plan_status,
+      plan_status: subscription?.status === "trialing" ? "trial" : (hasActiveSub ? "active" : company.plan_status),
       plan_type: currentPlan,
       subscription_end: subscriptionEnd,
-      trial_ends_at: company.trial_ends_at,
+      trial_ends_at: trialEndsAt,
+      days_remaining: daysRemaining,
       price_amount: priceAmount,
       price_interval: priceInterval,
       product_name: productName,

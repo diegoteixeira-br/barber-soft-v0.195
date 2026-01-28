@@ -4,6 +4,7 @@ import { User } from "@supabase/supabase-js";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useSubscriptionContext } from "@/contexts/SubscriptionContext";
+import { useCompany } from "@/hooks/useCompany";
 import {
   LayoutDashboard,
   Calendar,
@@ -75,6 +76,7 @@ export function AppSidebar({ onOpenChat, isChatOpen }: AppSidebarProps) {
   const { settings: businessSettings } = useBusinessSettings();
   const { isSuperAdmin } = useSuperAdmin();
   const { planType, isTrialing, isSuperAdmin: isSuperAdminSubscription } = useSubscriptionContext();
+  const { company } = useCompany();
   const [user, setUser] = useState<User | null>(null);
 
   const selectedUnit = units.find((u) => u.id === currentUnitId) || units[0];
@@ -115,7 +117,7 @@ export function AppSidebar({ onOpenChat, isChatOpen }: AppSidebarProps) {
   };
 
   const getBusinessInitials = () => {
-    const name = businessSettings?.business_name;
+    const name = businessSettings?.business_name || company?.name;
     if (name) {
       return name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
     }
@@ -123,7 +125,8 @@ export function AppSidebar({ onOpenChat, isChatOpen }: AppSidebarProps) {
   };
 
   const getDisplayName = () => {
-    return businessSettings?.business_name || user?.user_metadata?.full_name || "Usuário";
+    // Priority: business_settings > company name > user metadata > fallback
+    return businessSettings?.business_name || company?.name || user?.user_metadata?.business_name || user?.user_metadata?.full_name || "Usuário";
   };
 
   const isActive = (path: string) => location.pathname === path;
