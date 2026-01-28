@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { Scissors, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
+import { Scissors, Mail, Lock, Store, Eye, EyeOff, Loader2, ArrowLeft, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+
+const PLANS = [
+  { value: "inicial", label: "Inicial", price: "R$ 99/mês" },
+  { value: "profissional", label: "Profissional", price: "R$ 199/mês" },
+  { value: "franquias", label: "Franquias", price: "R$ 499/mês" },
+];
 
 type AuthView = "auth" | "forgot-password";
 
@@ -39,6 +46,18 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState(planFromUrl || "profissional");
+  const [selectedBilling, setSelectedBilling] = useState(billingFromUrl || "monthly");
+
+  // Update selected plan when URL params change
+  useEffect(() => {
+    if (planFromUrl) {
+      setSelectedPlan(planFromUrl);
+    }
+    if (billingFromUrl) {
+      setSelectedBilling(billingFromUrl);
+    }
+  }, [planFromUrl, billingFromUrl]);
 
   const validateLogin = () => {
     try {
@@ -65,7 +84,16 @@ export default function Auth() {
       if (!signupName.trim()) {
         toast({
           title: "Erro de validação",
-          description: "Nome é obrigatório",
+          description: "Nome da barbearia é obrigatório",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (!selectedPlan) {
+        toast({
+          title: "Erro de validação",
+          description: "Selecione um plano",
           variant: "destructive",
         });
         return false;
@@ -166,14 +194,12 @@ export default function Auth() {
             : "Escolha seu plano para continuar",
         });
 
-        // Check if plan was pre-selected (from "Começar Agora" button)
-        if (planFromUrl && billingFromUrl) {
-          // Flow 1: Direct checkout with pre-selected plan
-          try {
-            const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
-              "create-checkout-session",
-              { body: { plan: planFromUrl, billing: billingFromUrl } }
-            );
+        // Always proceed to checkout with the selected plan
+        try {
+          const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
+            "create-checkout-session",
+            { body: { plan: selectedPlan, billing: selectedBilling } }
+          );
 
             if (checkoutError) {
               console.error("Checkout error:", checkoutError);
@@ -186,18 +212,14 @@ export default function Auth() {
               return;
             }
 
-            if (checkoutData?.url) {
-              window.location.href = checkoutData.url;
-              return;
-            }
-          } catch (checkoutErr) {
-            console.error("Checkout exception:", checkoutErr);
-            navigate("/escolher-plano");
+          if (checkoutData?.url) {
+            window.location.href = checkoutData.url;
             return;
           }
-        } else {
-          // Flow 2: Redirect to plan selection page
+        } catch (checkoutErr) {
+          console.error("Checkout exception:", checkoutErr);
           navigate("/escolher-plano");
+          return;
         }
       }
     } finally {
@@ -330,17 +352,6 @@ export default function Auth() {
           <p className="mt-1 text-muted-foreground">Gestão de Barbearias</p>
         </Link>
 
-        {/* Show selected plan info if coming from pricing */}
-        {planFromUrl && billingFromUrl && defaultTab === "signup" && (
-          <div className="mb-4 p-3 rounded-lg bg-gold/10 border border-gold/30 text-center">
-            <p className="text-sm text-foreground">
-              Plano selecionado: <span className="font-semibold capitalize">{planFromUrl}</span> ({billingFromUrl === "annual" ? "Anual" : "Mensal"})
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              7 dias grátis, depois será cobrado automaticamente
-            </p>
-          </div>
-        )}
 
         <Card className="border-border bg-card">
           <Tabs defaultValue={defaultTab} className="w-full">
@@ -423,19 +434,41 @@ export default function Auth() {
               <TabsContent value="signup" className="mt-0">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nome</Label>
+                    <Label htmlFor="signup-name">Nome da Barbearia</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="signup-name"
                         type="text"
-                        placeholder="Seu nome"
+                        placeholder="Ex: Barbearia do João"
                         value={signupName}
                         onChange={(e) => setSignupName(e.target.value)}
                         className="pl-10"
                         required
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-plan">Plano</Label>
+                    <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o plano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PLANS.map((plan) => (
+                          <SelectItem key={plan.value} value={plan.value}>
+                            <span className="flex items-center justify-between gap-4 w-full">
+                              <span className="font-medium">{plan.label}</span>
+                              <span className="text-muted-foreground text-sm">{plan.price}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      7 dias grátis, depois será cobrado automaticamente
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -497,10 +530,10 @@ export default function Auth() {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {planFromUrl ? "Criando conta e redirecionando..." : "Criando conta..."}
+                        Criando conta...
                       </>
                     ) : (
-                      planFromUrl ? "Criar Conta e Iniciar Trial" : "Criar Conta"
+                      "Criar Conta"
                     )}
                   </Button>
                 </form>
