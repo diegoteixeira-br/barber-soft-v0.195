@@ -4,13 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSaasSettings } from "@/hooks/useSaasSettings";
-import { DollarSign, Percent } from "lucide-react";
+import { DollarSign, Percent, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export function PlanPricingCard() {
   const { settings, updateSettings, isUpdating } = useSaasSettings();
   
   const [trialDays, setTrialDays] = useState<number>(14);
   const [annualDiscount, setAnnualDiscount] = useState<number>(20);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<any>(null);
   
   // Plano Inicial
   const [inicialPrice, setInicialPrice] = useState<number>(99.00);
@@ -37,7 +41,8 @@ export function PlanPricingCard() {
     }
   }, [settings]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Primeiro salvar no banco
     updateSettings({
       default_trial_days: trialDays,
       annual_discount_percent: annualDiscount,
@@ -50,6 +55,37 @@ export function PlanPricingCard() {
     } as any);
   };
 
+  const handleSyncStripe = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-stripe-products');
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setSyncResult(data);
+      
+      if (data.success) {
+        if (data.results.errors.length === 0) {
+          toast.success("Sincronização concluída com sucesso!");
+        } else {
+          toast.warning("Sincronização parcial. Verifique os avisos.");
+        }
+      } else {
+        toast.error(data.error || "Erro na sincronização");
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast.error("Erro ao sincronizar com Stripe");
+      setSyncResult({ success: false, error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const calculateAnnualPrice = (monthlyPrice: number) => {
     return (monthlyPrice * (1 - annualDiscount / 100)).toFixed(2);
   };
@@ -57,19 +93,68 @@ export function PlanPricingCard() {
   return (
     <Card className="bg-slate-800 border-slate-700">
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-600/20 text-green-400">
-            <DollarSign className="h-5 w-5" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-600/20 text-green-400">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-white">Preços dos Planos</CardTitle>
+              <CardDescription className="text-slate-400">
+                Configure os preços mensais e anuais de cada plano
+              </CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-white">Preços dos Planos</CardTitle>
-            <CardDescription className="text-slate-400">
-              Configure os preços mensais e anuais de cada plano
-            </CardDescription>
-          </div>
+          <Button
+            onClick={handleSyncStripe}
+            disabled={isSyncing}
+            variant="outline"
+            size="sm"
+            className="border-purple-600 text-purple-400 hover:bg-purple-600/20"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? "Sincronizando..." : "Sincronizar Stripe"}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Sync Result */}
+        {syncResult && (
+          <div className={`p-4 rounded-lg border ${
+            syncResult.success && syncResult.results?.errors.length === 0 
+              ? 'bg-green-900/20 border-green-700/50' 
+              : syncResult.success 
+                ? 'bg-yellow-900/20 border-yellow-700/50'
+                : 'bg-red-900/20 border-red-700/50'
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              {syncResult.success && syncResult.results?.errors.length === 0 ? (
+                <CheckCircle className="h-5 w-5 text-green-400" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+              )}
+              <span className="text-white font-medium">
+                {syncResult.success ? "Sincronização concluída" : "Erro na sincronização"}
+              </span>
+            </div>
+            {syncResult.results?.products_updated?.length > 0 && (
+              <p className="text-sm text-green-400 mb-1">
+                ✓ Produtos atualizados: {syncResult.results.products_updated.join(", ")}
+              </p>
+            )}
+            {syncResult.results?.errors?.length > 0 && (
+              <div className="space-y-1">
+                {syncResult.results.errors.map((err: string, i: number) => (
+                  <p key={i} className="text-sm text-yellow-400">{err}</p>
+                ))}
+              </div>
+            )}
+            {syncResult.error && (
+              <p className="text-sm text-red-400">{syncResult.error}</p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label className="text-slate-300">Trial Padrão (dias)</Label>
@@ -218,13 +303,30 @@ export function PlanPricingCard() {
           </div>
         </div>
 
-        <Button 
-          onClick={handleSave}
-          disabled={isUpdating}
-          className="w-full bg-blue-600 hover:bg-blue-700"
-        >
-          {isUpdating ? "Salvando..." : "Salvar Preços"}
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            onClick={handleSave}
+            disabled={isUpdating}
+            className="flex-1 bg-blue-600 hover:bg-blue-700"
+          >
+            {isUpdating ? "Salvando..." : "Salvar Preços"}
+          </Button>
+          <Button 
+            onClick={async () => {
+              await handleSave();
+              setTimeout(handleSyncStripe, 500);
+            }}
+            disabled={isUpdating || isSyncing}
+            className="flex-1 bg-purple-600 hover:bg-purple-700"
+          >
+            {isSyncing ? "Sincronizando..." : "Salvar e Sincronizar"}
+          </Button>
+        </div>
+
+        <p className="text-xs text-slate-500 text-center">
+          ⚠️ O Stripe não permite alterar preços existentes. Para mudar valores, crie novos preços no Stripe Dashboard.
+          As features são sincronizadas como metadados dos produtos.
+        </p>
       </CardContent>
     </Card>
   );
