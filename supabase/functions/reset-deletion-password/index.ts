@@ -103,7 +103,7 @@ serve(async (req: Request) => {
       // Send email via Resend
       try {
         const { error: emailError } = await resend.emails.send({
-          from: "BarberSoft <noreply@resend.dev>",
+          from: "BarberSoft <noreply@barbersoft.com.br>",
           to: [authUser.user.email],
           subject: "Recuperar senha de exclusão - BarberSoft",
           html: `
