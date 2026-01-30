@@ -1,114 +1,186 @@
 
-# Plano: Programa de Fidelidade Simplificado
+# Plano: Senha de Seguranca para Exclusao de Agendamentos
 
-## Resumo do Que Voce Quer
+## Objetivo
 
-Voce quer um programa de fidelidade simples:
-- **5 cortes pagos** (com valor >= minimo estipulado) = **6o corte gratis**
-- A cortesia **nao acumula** - se o cliente ja tem 1 cortesia, para de contar ate ele usar
-- **Pop-up no 6o corte** avisando que e cortesia, para o barbeiro selecionar "Cortesia de Fidelidade" como pagamento
+Implementar uma senha de seguranca definida pelo dono da barbearia que sera exigida antes de excluir agendamentos confirmados ou finalizados. Isso protege o fluxo financeiro contra exclusoes nao autorizadas por colaboradores (profissionais).
 
-## Situacao Atual vs Desejada
+## Por Que Isso e Importante?
 
-| Aspecto | Atual | Desejado |
-|---------|-------|----------|
-| Contagem com cortesia pendente | Continua contando | **Pausa ate usar** |
-| Quando mostra pop-up | Depois de finalizar (apos trigger) | **No 6o corte, ANTES de finalizar** |
-| Cortesias acumulativas | Sim (pode ter 2, 3...) | **Nao (maximo 1)** |
-| Quando zerar contador | Ao atingir threshold | **Ao atingir threshold** |
+O dono da barbearia compartilha acesso ao sistema com os profissionais, mas precisa garantir que apenas pessoas autorizadas possam excluir registros que impactam o caixa. Uma senha separada garante essa camada extra de seguranca.
+
+## Como Vai Funcionar
+
+```text
+Profissional clica em "Excluir" agendamento
+        |
+        v
+Sistema verifica se agendamento e confirmado/finalizado
+        |
+        v
+  [SIM] --> Modal solicita senha de exclusao
+        |
+        v
+Senha correta? --> Prossegue com exclusao
+        |
+  [NAO] --> Mensagem de erro "Senha incorreta"
+```
+
+## Onde o Dono Configura a Senha
+
+Na aba **Conta** em Configuracoes, sera adicionado um novo card:
+
+| Campo | Descricao |
+|-------|-----------|
+| Senha de Exclusao | Senha numerica de 4-6 digitos |
+| Confirmar Senha | Confirmacao da senha |
+| Habilitar/Desabilitar | Toggle para ativar a protecao |
+
+## Seguranca da Senha
+
+A senha sera armazenada de forma segura no banco de dados, em uma coluna separada na tabela `business_settings`. 
+
+**Importante:** A validacao acontecera **no frontend** comparando com o hash da senha. Para maior seguranca, poderiamos criar uma edge function, mas para simplicidade e velocidade, faremos a validacao local usando bcrypt/hash.
+
+**Abordagem simplificada:** Armazenar a senha com hash SHA-256 e comparar no frontend. Nao e tao seguro quanto bcrypt, mas impede que alguem veja a senha em texto claro.
 
 ## Mudancas Necessarias
 
-### 1. Modificar Trigger do Banco de Dados
+### 1. Banco de Dados
 
-Adicionar condicao para **pausar contagem** quando cliente ja tem cortesia disponivel:
+Adicionar colunas na tabela `business_settings`:
 
-```sql
--- Adicionar na validacao should_count_loyalty:
-AND COALESCE(client_record.available_courtesies, 0) = 0  -- Pausa se ja tem cortesia
-```
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| `deletion_password_hash` | TEXT | Hash da senha de exclusao |
+| `deletion_password_enabled` | BOOLEAN | Se a protecao esta ativa |
 
-### 2. Modificar o Fluxo de Finalizacao no Frontend
+### 2. Hook useBusinessSettings
 
-Antes de abrir o modal de pagamento, verificar:
-- Quantos cortes o cliente tem? (`loyalty_cuts`)
-- Qual o threshold? (ex: 5)
-- Se `loyalty_cuts + 1 >= threshold` E valor >= minimo E nao e cortesia pendente
+Atualizar interface e funcoes para incluir os novos campos:
+- `deletion_password_enabled`
+- Funcao `setDeletionPassword(password)` que gera hash e salva
+- Funcao `verifyDeletionPassword(password)` que compara hashes
 
-Se sim, mostrar pop-up especial: **"Este e o 6o corte! Cortesia de Fidelidade!"**
+### 3. AccountTab (Configuracoes)
 
-### 3. Arquivos a Modificar
+Adicionar novo card de "Senha de Exclusao":
+- Input para nova senha (mascarado)
+- Input para confirmar senha
+- Toggle para ativar/desativar
+- Botao para salvar
+
+### 4. AppointmentDetailsModal
+
+Modificar o fluxo de exclusao:
+1. Quando clicar em Excluir (agendamento confirmado/finalizado)
+2. Se `deletion_password_enabled` estiver ativo:
+   - Mostrar campo de senha antes do motivo
+   - Validar senha antes de permitir exclusao
+3. Se senha incorreta, mostrar erro e bloquear
+
+### 5. Arquivos a Modificar
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `sync_client_on_appointment_complete` (trigger SQL) | Adicionar bloqueio quando `available_courtesies > 0` |
-| `AppointmentDetailsModal.tsx` | Detectar 6o corte ANTES de finalizar e mostrar pop-up |
-| `useFidelityCourtesy.ts` | Adicionar funcao para checar se e o 6o corte |
-| `PaymentMethodModal.tsx` | Mostrar destaque quando e o corte gratis |
+| Migracao SQL | Adicionar colunas `deletion_password_hash` e `deletion_password_enabled` |
+| `useBusinessSettings.ts` | Adicionar interfaces e funcoes para senha |
+| `AccountTab.tsx` | Novo card para configurar senha de exclusao |
+| `AppointmentDetailsModal.tsx` | Adicionar validacao de senha antes de excluir |
+
+## Interface do Usuario
+
+### Card de Configuracao (AccountTab)
+
+```text
++---------------------------------------------+
+| [Icone Cadeado] Senha de Exclusao           |
+| Proteja a exclusao de agendamentos          |
++---------------------------------------------+
+| [Toggle] Exigir senha para excluir          |
+|                                             |
+| Nova Senha:    [........]                   |
+| Confirmar:     [........]                   |
+|                                             |
+| [Salvar Senha]                              |
++---------------------------------------------+
+```
+
+### Modal de Exclusao com Senha
+
+```text
++---------------------------------------------+
+| [!] Exclusao com Registro                   |
+| Este agendamento ja foi confirmado.         |
++---------------------------------------------+
+|                                             |
+| Senha de Exclusao: [........]               |
+|                                             |
+| Motivo da exclusao (obrigatorio):           |
+| +---------------------------------------+   |
+| |                                       |   |
+| +---------------------------------------+   |
+|                                             |
+| [Cancelar]          [Confirmar Exclusao]    |
++---------------------------------------------+
+```
 
 ## Fluxo Detalhado
 
-```text
-Cliente faz 5o corte (pago)
-      |
-      v
-Trigger incrementa loyalty_cuts para 5
-      |
-      v
-Cliente volta para 6o corte
-      |
-      v
-Barbeiro clica "Finalizar"
-      |
-      v
-Sistema detecta: loyalty_cuts=5, threshold=5
-      |
-      v
-Pop-up especial: "Este e o 6o corte! Cortesia de Fidelidade!"
-      |
-      v
-Barbeiro confirma com "Cortesia de Fidelidade"
-      |
-      v
-Trigger: zera loyalty_cuts, NAO incrementa available_courtesies
-         (porque ja esta usando a cortesia)
-```
+1. **Dono configura senha:**
+   - Acessa Configuracoes → Conta
+   - Ativa toggle "Exigir senha para excluir"
+   - Define senha numerica de 4-6 digitos
+   - Sistema gera hash e salva no banco
+
+2. **Profissional tenta excluir:**
+   - Clica no botao Excluir em agendamento confirmado
+   - Sistema detecta que senha esta habilitada
+   - Exibe campo de senha + campo de motivo
+   - Profissional digita senha
+   - Sistema valida hash
+   - Se correto: prossegue com exclusao
+   - Se incorreto: mostra erro, bloqueia
 
 ## Detalhes Tecnicos
 
-### Trigger SQL Modificado
+### Migracao SQL
 
-A funcao `sync_client_on_appointment_complete` sera atualizada para:
+```sql
+ALTER TABLE public.business_settings 
+  ADD COLUMN deletion_password_hash TEXT,
+  ADD COLUMN deletion_password_enabled BOOLEAN DEFAULT false;
+```
 
-1. **Bloquear contagem** quando `available_courtesies > 0`
-2. Quando o cliente usa cortesia de fidelidade (`payment_method = 'fidelity_courtesy'`):
-   - Zerar `loyalty_cuts`
-   - Decrementar `available_courtesies`
+### Geracao de Hash (useBusinessSettings)
 
-### Frontend - AppointmentDetailsModal.tsx
-
-Nova logica antes de abrir modal de pagamento:
-
-1. Buscar `loyalty_cuts` atual do cliente
-2. Buscar `fidelity_cuts_threshold` das configuracoes
-3. Buscar valor do servico e `fidelity_min_value`
-4. Se `loyalty_cuts + 1 >= threshold` E `valor >= min_value`:
-   - Abrir modal com **destaque para cortesia de fidelidade**
-   - Mensagem: "Este e o Xo corte! Cortesia de Fidelidade!"
-
-### useFidelityCourtesy.ts
-
-Nova funcao `checkIfNextCutIsFree`:
+Usaremos a Web Crypto API nativa do navegador para gerar hash SHA-256:
 
 ```typescript
-checkIfNextCutIsFree(clientPhone, unitId, serviceValue) => {
-  // Retorna true se o proximo corte (este) e o gratis
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 ```
 
-### PaymentMethodModal.tsx
+### Validacao de Senha
 
-Quando for o corte gratis:
-- Mostrar botao "Cortesia de Fidelidade" em destaque no topo
-- Ocultar ou diminuir outros metodos de pagamento
-- Mensagem clara: "5o corte pago! Este e GRATIS!"
+```typescript
+async function verifyDeletionPassword(inputPassword: string): Promise<boolean> {
+  if (!settings?.deletion_password_enabled || !settings?.deletion_password_hash) {
+    return true; // Nao precisa validar
+  }
+  const inputHash = await hashPassword(inputPassword);
+  return inputHash === settings.deletion_password_hash;
+}
+```
+
+### AppointmentDetailsModal
+
+Novo state e logica:
+- `deletionPassword`: string para input
+- `passwordError`: boolean para mostrar erro
+- Validar senha antes de chamar `onDelete(reason)`
