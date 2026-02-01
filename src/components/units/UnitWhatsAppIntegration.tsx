@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useState, useEffect } from "react";
+import { forwardRef, useImperativeHandle, useState, useEffect, useRef } from "react";
 import { Loader2, MessageCircle, RefreshCw, Unplug, Smartphone, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { useUnitEvolutionWhatsApp } from "@/hooks/useUnitEvolutionWhatsApp";
 interface UnitWhatsAppIntegrationProps {
   unit: Unit;
   onConnectionChange?: () => void;
+  autoConnect?: boolean; // New prop to auto-start connection
 }
 
 export interface UnitWhatsAppIntegrationRef {
@@ -15,7 +16,7 @@ export interface UnitWhatsAppIntegrationRef {
 }
 
 export const UnitWhatsAppIntegration = forwardRef<UnitWhatsAppIntegrationRef, UnitWhatsAppIntegrationProps>(
-  ({ unit, onConnectionChange }, ref) => {
+  ({ unit, onConnectionChange, autoConnect = false }, ref) => {
     const {
       connectionState,
       qrCode,
@@ -30,6 +31,55 @@ export const UnitWhatsAppIntegration = forwardRef<UnitWhatsAppIntegrationRef, Un
 
     // Timeout state for QR code generation
     const [showRetry, setShowRetry] = useState(false);
+    // QR code expiration countdown
+    const [qrTimeLeft, setQrTimeLeft] = useState(60);
+    const qrTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const autoConnectTriggered = useRef(false);
+
+    // Auto-connect when modal opens if autoConnect is true
+    useEffect(() => {
+      if (autoConnect && connectionState === 'disconnected' && !autoConnectTriggered.current && !isLoading) {
+        autoConnectTriggered.current = true;
+        createInstance();
+      }
+    }, [autoConnect, connectionState, isLoading, createInstance]);
+
+    // Reset auto-connect flag when unit changes
+    useEffect(() => {
+      autoConnectTriggered.current = false;
+    }, [unit.id]);
+
+    // QR Code expiration timer - auto refresh at 10 seconds remaining
+    useEffect(() => {
+      if (qrCode && connectionState === 'connecting') {
+        // Reset timer when new QR code is received
+        setQrTimeLeft(60);
+        
+        // Clear existing timer
+        if (qrTimerRef.current) {
+          clearInterval(qrTimerRef.current);
+        }
+        
+        // Start countdown
+        qrTimerRef.current = setInterval(() => {
+          setQrTimeLeft((prev) => {
+            if (prev <= 1) {
+              // Auto-refresh QR code when expired
+              refreshQRCode();
+              return 60;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
+        return () => {
+          if (qrTimerRef.current) {
+            clearInterval(qrTimerRef.current);
+            qrTimerRef.current = null;
+          }
+        };
+      }
+    }, [qrCode, connectionState, refreshQRCode]);
 
     // Show retry button if QR code doesn't appear within 15 seconds
     useEffect(() => {
@@ -163,9 +213,14 @@ export const UnitWhatsAppIntegration = forwardRef<UnitWhatsAppIntegrationRef, Un
                     className="h-48 w-48"
                   />
                 </div>
-                <p className="text-sm text-muted-foreground text-center mb-2">
-                  Escaneie o QR Code com seu WhatsApp
-                </p>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Escaneie o QR Code com seu WhatsApp
+                  </p>
+                  <Badge variant="outline" className={`text-xs ${qrTimeLeft <= 10 ? 'text-destructive border-destructive' : ''}`}>
+                    {qrTimeLeft}s
+                  </Badge>
+                </div>
                 {pairingCode && (
                   <div className="mb-4 text-center">
                     <p className="text-xs text-muted-foreground mb-1">Ou use o código:</p>
