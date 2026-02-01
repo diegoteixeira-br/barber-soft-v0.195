@@ -502,6 +502,35 @@ serve(async (req) => {
 
         console.log(`Refreshing QR for unit ${unit.id}: ${unit.evolution_instance_name}`);
 
+        // First check current status - if already connected, no need for QR
+        const statusCheckResponse = await fetch(
+          `${EVOLUTION_API_URL}/instance/connectionState/${unit.evolution_instance_name}`,
+          {
+            method: 'GET',
+            headers: {
+              'apikey': EVOLUTION_GLOBAL_KEY!,
+            },
+          }
+        );
+
+        const statusCheckData = await statusCheckResponse.json();
+        console.log('Status check before refresh QR:', JSON.stringify(statusCheckData));
+
+        const currentState = statusCheckData.state || statusCheckData.instance?.state || 'unknown';
+
+        // If already connected, return success with connected state
+        if (currentState === 'open') {
+          console.log('Instance already connected, no QR needed');
+          return new Response(JSON.stringify({
+            success: true,
+            alreadyConnected: true,
+            state: 'open',
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Try to get new QR code
         const qrResponse = await fetch(
           `${EVOLUTION_API_URL}/instance/connect/${unit.evolution_instance_name}`,
           {
@@ -513,12 +542,24 @@ serve(async (req) => {
         );
 
         const qrData = await qrResponse.json();
-        console.log('Refresh QR response status:', qrResponse.status);
+        console.log('Refresh QR response:', JSON.stringify(qrData).substring(0, 300));
         
         // Extract QR code from various possible response formats
         const extractedQR = qrData.base64 || qrData.qrcode?.base64 || qrData.code;
 
+        // Even if API returns error, if it's because already connected, handle gracefully
         if (!qrResponse.ok) {
+          // Check if failure is because already connected
+          if (qrData.message?.includes('connected') || qrData.message?.includes('open')) {
+            return new Response(JSON.stringify({
+              success: true,
+              alreadyConnected: true,
+              state: 'open',
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          console.error('QR refresh error:', qrData);
           throw new Error(qrData.message || 'Erro ao atualizar QR Code');
         }
 

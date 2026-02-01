@@ -97,9 +97,18 @@ export function useUnitEvolutionWhatsApp(unit: Unit | null): UseUnitEvolutionWha
               const { data: qrData } = await supabase.functions.invoke('evolution-whatsapp', {
                 body: { action: 'refresh-qr', unit_id: unit.id },
               });
-              if (qrData?.success && qrData.qrCode) {
-                setQrCode(qrData.qrCode);
-                setPairingCode(qrData.pairingCode);
+              if (qrData?.success) {
+                if (qrData.alreadyConnected) {
+                  // Already connected! Update state accordingly
+                  console.log('Instance already connected during QR refresh');
+                  setConnectionState("open");
+                  setQrCode(null);
+                  setPairingCode(null);
+                  stopPolling();
+                } else if (qrData.qrCode) {
+                  setQrCode(qrData.qrCode);
+                  setPairingCode(qrData.pairingCode);
+                }
               }
             } catch (e) {
               console.error('Auto-refresh QR failed:', e);
@@ -114,9 +123,17 @@ export function useUnitEvolutionWhatsApp(unit: Unit | null): UseUnitEvolutionWha
             const { data: qrData } = await supabase.functions.invoke('evolution-whatsapp', {
               body: { action: 'refresh-qr', unit_id: unit.id },
             });
-            if (qrData?.success && qrData.qrCode) {
-              setQrCode(qrData.qrCode);
-              setPairingCode(qrData.pairingCode);
+            if (qrData?.success) {
+              if (qrData.alreadyConnected) {
+                console.log('Instance already connected during QR refresh (close state)');
+                setConnectionState("open");
+                setQrCode(null);
+                setPairingCode(null);
+                stopPolling();
+              } else if (qrData.qrCode) {
+                setQrCode(qrData.qrCode);
+                setPairingCode(qrData.pairingCode);
+              }
             }
           } catch (e) {
             console.error('Auto-refresh QR on close failed:', e);
