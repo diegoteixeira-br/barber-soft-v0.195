@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useState, useEffect, useRef } from "react";
-import { Loader2, MessageCircle, RefreshCw, Unplug, Smartphone, AlertCircle } from "lucide-react";
+import { Loader2, MessageCircle, RefreshCw, Unplug, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Unit } from "@/hooks/useUnits";
@@ -183,26 +183,8 @@ export const UnitWhatsAppIntegration = forwardRef<UnitWhatsAppIntegrationRef, Un
           {renderStatusBadge()}
         </div>
 
-        {/* Disconnected State */}
-        {connectionState === "disconnected" && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 p-8 text-center">
-            <Smartphone className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-sm text-muted-foreground mb-4">
-              Conecte seu WhatsApp para receber agendamentos automáticos nesta unidade.
-            </p>
-            <Button onClick={handleConnect} disabled={isLoading} className="gap-2">
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MessageCircle className="h-4 w-4" />
-              )}
-              Conectar WhatsApp
-            </Button>
-          </div>
-        )}
-
         {/* Connecting State - Show QR Code */}
-        {(connectionState === "connecting" || connectionState === "loading") && (
+        {(connectionState === "connecting" || connectionState === "loading" || connectionState === "disconnected") && (
           <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card p-6">
             {qrCode ? (
               <>
@@ -213,7 +195,7 @@ export const UnitWhatsAppIntegration = forwardRef<UnitWhatsAppIntegrationRef, Un
                     className="h-48 w-48"
                   />
                 </div>
-                <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="flex items-center justify-center gap-2 mb-3">
                   <p className="text-sm text-muted-foreground text-center">
                     Escaneie o QR Code com seu WhatsApp
                   </p>
@@ -229,58 +211,68 @@ export const UnitWhatsAppIntegration = forwardRef<UnitWhatsAppIntegrationRef, Un
                     </code>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 w-full max-w-xs">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={refreshQRCode}
                     disabled={isLoading}
-                    className="gap-2"
+                    className="gap-2 w-full"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                     Atualizar QR Code
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     size="sm"
                     onClick={handleDisconnect}
                     disabled={isLoading}
-                    className="gap-2 text-destructive hover:text-destructive"
+                    className="gap-2 w-full"
                   >
-                    Cancelar
+                    Cancelar Conexão
                   </Button>
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center w-full">
                 {showRetry ? (
                   <>
                     <AlertCircle className="h-8 w-8 text-destructive mb-4" />
                     <p className="text-sm text-muted-foreground mb-4">
                       Não foi possível gerar o QR Code. Tente novamente.
                     </p>
-                    <Button onClick={handleRetry} disabled={isLoading} className="gap-2">
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                      Tentar novamente
-                    </Button>
+                    <div className="flex flex-col gap-2 w-full max-w-xs">
+                      <Button onClick={handleRetry} disabled={isLoading} className="gap-2 w-full">
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        Tentar novamente
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDisconnect}
+                        disabled={isLoading}
+                        className="gap-2 w-full"
+                      >
+                        Cancelar Conexão
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <>
                     <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                    <p className="text-sm text-muted-foreground mb-2">Gerando QR Code...</p>
+                    <p className="text-sm text-muted-foreground mb-4">Gerando QR Code...</p>
                     <Button
-                      variant="ghost"
+                      variant="destructive"
                       size="sm"
-                      onClick={refreshQRCode}
+                      onClick={handleDisconnect}
                       disabled={isLoading}
-                      className="gap-2 text-muted-foreground hover:text-foreground"
+                      className="gap-2 w-full max-w-xs"
                     >
-                      <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
-                      Forçar geração
+                      Cancelar Conexão
                     </Button>
                   </>
                 )}
