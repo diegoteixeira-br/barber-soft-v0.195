@@ -5,10 +5,8 @@ const RECAPTCHA_SITE_KEY = '6Le2q2EsAAAAALT1XXCEYyPsT3gfauLb_0JgYXs7';
 declare global {
   interface Window {
     grecaptcha: {
-      enterprise: {
-        ready: (callback: () => void) => void;
-        execute: (siteKey: string, options: { action: string }) => Promise<string>;
-      };
+      ready: (callback: () => void) => void;
+      execute: (siteKey: string, options: { action: string }) => Promise<string>;
     };
   }
 }
@@ -22,9 +20,9 @@ export function useRecaptcha(): UseRecaptchaReturn {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Check if script is already loaded
-    if (window.grecaptcha?.enterprise) {
-      window.grecaptcha.enterprise.ready(() => {
+    // Check if script is already loaded (standard v3)
+    if (window.grecaptcha?.ready) {
+      window.grecaptcha.ready(() => {
         setIsReady(true);
       });
       return;
@@ -32,14 +30,14 @@ export function useRecaptcha(): UseRecaptchaReturn {
 
     // Check if script tag already exists
     const existingScript = document.querySelector(
-      `script[src*="recaptcha/enterprise.js"]`
+      `script[src*="recaptcha/api.js"]`
     );
     
     if (existingScript) {
       // Script exists but not loaded yet, wait for it
       const checkReady = setInterval(() => {
-        if (window.grecaptcha?.enterprise) {
-          window.grecaptcha.enterprise.ready(() => {
+        if (window.grecaptcha?.ready) {
+          window.grecaptcha.ready(() => {
             setIsReady(true);
             clearInterval(checkReady);
           });
@@ -49,16 +47,18 @@ export function useRecaptcha(): UseRecaptchaReturn {
       return () => clearInterval(checkReady);
     }
 
-    // Load the script
+    // Load the reCAPTCHA v3 standard script (not Enterprise)
     const script = document.createElement('script');
-    script.src = `https://www.google.com/recaptcha/enterprise.js?render=${RECAPTCHA_SITE_KEY}`;
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
     script.async = true;
     script.defer = true;
 
     script.onload = () => {
-      window.grecaptcha.enterprise.ready(() => {
-        setIsReady(true);
-      });
+      if (window.grecaptcha?.ready) {
+        window.grecaptcha.ready(() => {
+          setIsReady(true);
+        });
+      }
     };
 
     script.onerror = () => {
@@ -73,13 +73,13 @@ export function useRecaptcha(): UseRecaptchaReturn {
   }, []);
 
   const executeRecaptcha = useCallback(async (action: string): Promise<string | null> => {
-    if (!isReady || !window.grecaptcha?.enterprise) {
+    if (!isReady || !window.grecaptcha?.execute) {
       console.error('reCAPTCHA not ready');
       return null;
     }
 
     try {
-      const token = await window.grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {
+      const token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
         action,
       });
       return token;
